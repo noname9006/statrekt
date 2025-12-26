@@ -5,9 +5,22 @@ const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const analytics = require('./analytics');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.DASHBOARD_PORT || 3000;
+
+// Rate limiting for API endpoints (optional, for production deployments)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.RATE_LIMIT_MAX || 100, // Limit each IP to 100 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV !== 'production' // Skip in development
+});
+
+// Apply rate limiting to API routes only
+app.use('/api/', apiLimiter);
 
 // Middleware
 app.use(bodyParser.json());

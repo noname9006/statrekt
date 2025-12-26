@@ -241,6 +241,32 @@ The dashboard is optimized for large servers:
 - Client-side caching
 - Responsive design for all devices
 
+## Security
+
+### Local Deployment
+The dashboard is designed to run locally on your machine and is not intended for public deployment. By default:
+- No authentication is required (assumes local access only)
+- Rate limiting is disabled in development mode
+- All data is stored locally in SQLite database files
+
+### Production Deployment
+If you want to deploy the dashboard on a server accessible from the internet, you should:
+
+1. **Enable Rate Limiting**: Set `NODE_ENV=production` to enable API rate limiting
+   ```bash
+   NODE_ENV=production RATE_LIMIT_MAX=100 npm run dashboard
+   ```
+
+2. **Add Authentication**: Implement authentication middleware (e.g., Passport.js, OAuth)
+
+3. **Use HTTPS**: Deploy behind a reverse proxy with SSL/TLS (e.g., Nginx, Apache)
+
+4. **Firewall Rules**: Restrict access to specific IP addresses
+
+5. **Regular Updates**: Keep dependencies up to date with `npm update`
+
+**Note**: This dashboard was built for personal/local use. For production deployments, additional security measures are strongly recommended.
+
 ## Troubleshooting
 
 ### Dashboard won't start
