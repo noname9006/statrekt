@@ -1,0 +1,29 @@
+{
+  "name": "statrekt-dashboard",
+  "version": "1.0.0",
+  "description": "Discord server analytics dashboard - better alternative to Statbot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dashboard": "node dashboard/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "discord",
+    "analytics",
+    "dashboard",
+    "statistics"
+  ],
+  "author": "noname9006",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1",
+    "sqlite3": "^5.1.6",
+    "express": "^4.18.2",
+    "ejs": "^3.1.9",
+    "chart.js": "^4.4.0",
+    "moment": "^2.29.4",
+    "body-parser": "^1.20.2"
+  }
+}

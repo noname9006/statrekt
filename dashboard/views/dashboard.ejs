@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= guildInfo.guild_name || 'Server' %> - Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="sidebar">
+            <div class="nav-header">
+                <h2><%= guildInfo.guild_name || 'Server Analytics' %></h2>
+                <p class="guild-id">ID: <%= guildInfo.guild_id || 'N/A' %></p>
+            </div>
+            <ul class="nav-menu">
+                <li class="active"><a href="/">📊 Overview</a></li>
+                <li><a href="/messages">💬 Messages</a></li>
+                <li><a href="/points">⭐ Points</a></li>
+                <li><a href="/settings">⚙️ Settings</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Dashboard Overview</h1>
+                <div class="timeframe-selector">
+                    <select id="timeframe" onchange="changeTimeframe(this.value)">
+                        <option value="24h" <%= timeframe === '24h' ? 'selected' : '' %>>Last 24 Hours</option>
+                        <option value="week" <%= timeframe === 'week' ? 'selected' : '' %>>Last 7 Days</option>
+                        <option value="month" <%= timeframe === 'month' ? 'selected' : '' %>>Last 30 Days</option>
+                    </select>
+                    
+                    <select id="compare" onchange="changeComparison(this.value)">
+                        <option value="">No Comparison</option>
+                        <option value="prev_24h" <%= compareWith === 'prev_24h' ? 'selected' : '' %>>Previous 24h</option>
+                        <option value="prev_week" <%= compareWith === 'prev_week' ? 'selected' : '' %>>Previous Week</option>
+                        <option value="prev_month" <%= compareWith === 'prev_month' ? 'selected' : '' %>>Previous Month</option>
+                    </select>
+                </div>
+            </header>
+
+            <!-- Key Metrics -->
+            <section class="metrics-grid">
+                <div class="metric-card">
+                    <h3>Daily Active Users</h3>
+                    <div class="metric-value"><%= dau.count %></div>
+                    <% if (comparisonData) { %>
+                    <div class="metric-comparison">
+                        <% const change = dau.count - (comparisonData.uniqueUsers || 0); %>
+                        <span class="<%= change >= 0 ? 'positive' : 'negative' %>">
+                            <%= change >= 0 ? '▲' : '▼' %> <%= Math.abs(change) %>
+                        </span>
+                    </div>
+                    <% } %>
+                </div>
+
+                <div class="metric-card">
+                    <h3>Weekly Active Users</h3>
+                    <div class="metric-value"><%= wau.count %></div>
+                </div>
+
+                <div class="metric-card">
+                    <h3>Monthly Active Users</h3>
+                    <div class="metric-value"><%= mau.count %></div>
+                </div>
+
+                <div class="metric-card">
+                    <h3>Total Messages</h3>
+                    <div class="metric-value"><%= overallStats.totalMessages.toLocaleString() %></div>
+                    <% if (comparisonData) { %>
+                    <div class="metric-comparison">
+                        <% const msgChange = overallStats.totalMessages - (comparisonData.totalMessages || 0); %>
+                        <span class="<%= msgChange >= 0 ? 'positive' : 'negative' %>">
+                            <%= msgChange >= 0 ? '▲' : '▼' %> <%= Math.abs(msgChange).toLocaleString() %>
+                        </span>
+                    </div>
+                    <% } %>
+                </div>
+
+                <div class="metric-card">
+                    <h3>Active Channels</h3>
+                    <div class="metric-value"><%= overallStats.activeChannels %></div>
+                </div>
+
+                <div class="metric-card">
+                    <h3>Total Characters</h3>
+                    <div class="metric-value"><%= overallStats.totalCharacters.toLocaleString() %></div>
+                </div>
+
+                <div class="metric-card">
+                    <h3>Avg Message Length</h3>
+                    <div class="metric-value"><%= Math.round(overallStats.avgMessageLength || 0) %></div>
+                    <div class="metric-label">characters</div>
+                </div>
+
+                <div class="metric-card">
+                    <h3>Messages with Reactions</h3>
+                    <div class="metric-value"><%= reactionsStats.messagesWithReactions.toLocaleString() %></div>
+                    <div class="metric-label">
+                        <%= reactionsStats.totalMessages > 0 ? 
+                            ((reactionsStats.messagesWithReactions / reactionsStats.totalMessages * 100).toFixed(1)) : 0 %>% of messages
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <h3>Total Reactions</h3>
+                    <div class="metric-value"><%= reactionsStats.totalReactions.toLocaleString() %></div>
+                </div>
+
+                <div class="metric-card">
+                    <h3>Reply Rate</h3>
+                    <div class="metric-value"><%= repliesStats.replyRate %>%</div>
+                    <div class="metric-label"><%= repliesStats.repliesCount.toLocaleString() %> replies</div>
+                </div>
+            </section>
+
+            <!-- Top Reactions -->
+            <% if (reactionsStats.topEmojis && reactionsStats.topEmojis.length > 0) { %>
+            <section class="card">
+                <h2>Top Reactions</h2>
+                <div class="reaction-list">
+                    <% reactionsStats.topEmojis.forEach(emoji => { %>
+                    <div class="reaction-item">
+                        <span class="emoji"><%= emoji.emoji %></span>
+                        <span class="count"><%= emoji.count.toLocaleString() %></span>
+                    </div>
+                    <% }); %>
+                </div>
+            </section>
+            <% } %>
+
+            <!-- Top Users -->
+            <section class="card">
+                <h2>Top Users by Messages</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Username</th>
+                            <th>Messages</th>
+                            <th>Characters</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% topUsers.slice(0, 15).forEach((user, index) => { %>
+                        <tr>
+                            <td><%= index + 1 %></td>
+                            <td><%= user.authorUsername %></td>
+                            <td><%= user.messageCount.toLocaleString() %></td>
+                            <td><%= user.totalCharacters.toLocaleString() %></td>
+                        </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Top Channels -->
+            <section class="card">
+                <h2>Top Channels by Activity</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Channel</th>
+                            <th>Messages</th>
+                            <th>Unique Users</th>
+                            <th>Characters</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% channelActivity.slice(0, 15).forEach((channel, index) => { %>
+                        <tr>
+                            <td><%= index + 1 %></td>
+                            <td><%= channel.channelName || channel.channelId %></td>
+                            <td><%= channel.messageCount.toLocaleString() %></td>
+                            <td><%= channel.uniqueUsers %></td>
+                            <td><%= channel.totalCharacters.toLocaleString() %></td>
+                        </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Top Categories -->
+            <% if (categoryActivity && categoryActivity.length > 0) { %>
+            <section class="card">
+                <h2>Top Categories by Activity</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Category</th>
+                            <th>Messages</th>
+                            <th>Unique Users</th>
+                            <th>Characters</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% categoryActivity.forEach((category, index) => { %>
+                        <tr>
+                            <td><%= index + 1 %></td>
+                            <td><%= category.categoryName || 'Uncategorized' %></td>
+                            <td><%= category.messageCount.toLocaleString() %></td>
+                            <td><%= category.uniqueUsers %></td>
+                            <td><%= category.totalCharacters.toLocaleString() %></td>
+                        </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </section>
+            <% } %>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <p>Data from <%= new Date(startDate).toLocaleString() %> to <%= new Date(endDate).toLocaleString() %></p>
+                <p class="muted">StatRekt Dashboard - Better alternative to Statbot</p>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        function changeTimeframe(value) {
+            const compare = document.getElementById('compare').value;
+            let url = '/?timeframe=' + value;
+            if (compare) {
+                url += '&compare=' + compare;
+            }
+            window.location.href = url;
+        }
+
+        function changeComparison(value) {
+            const timeframe = document.getElementById('timeframe').value;
+            let url = '/?timeframe=' + timeframe;
+            if (value) {
+                url += '&compare=' + value;
+            }
+            window.location.href = url;
+        }
+    </script>
+</body>
+</html>

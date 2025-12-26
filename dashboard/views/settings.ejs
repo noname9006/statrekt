@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= guildInfo.guild_name || 'Server' %> - Settings</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="sidebar">
+            <div class="nav-header">
+                <h2><%= guildInfo.guild_name || 'Server Analytics' %></h2>
+                <p class="guild-id">ID: <%= guildInfo.guild_id || 'N/A' %></p>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/">📊 Overview</a></li>
+                <li><a href="/messages">💬 Messages</a></li>
+                <li><a href="/points">⭐ Points</a></li>
+                <li class="active"><a href="/settings">⚙️ Settings</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Settings</h1>
+            </header>
+
+            <!-- Role-Based Groups -->
+            <section class="card">
+                <h2>Role-Based Groups</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Create groups based on users' highest roles for better analytics segmentation.
+                </p>
+
+                <div id="roleGroups">
+                    <% (settings.roleGroups || []).forEach((group, index) => { %>
+                    <div class="settings-card" style="margin-bottom: 15px;">
+                        <h3><%= group.name %></h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                            Based on highest role: 
+                            <% const role = roles.find(r => r.id === group.roleId); %>
+                            <span class="role-tag" style="background-color: <%= role ? role.color : '#99AAB5' %>">
+                                <%= role ? role.name : 'Unknown Role' %>
+                            </span>
+                        </p>
+                        <button onclick="deleteGroup(<%= index %>)" class="btn btn-danger" style="margin-top: 10px;">
+                            Delete Group
+                        </button>
+                    </div>
+                    <% }); %>
+                </div>
+
+                <div style="margin-top: 20px; padding: 20px; background-color: var(--surface-elevated); border-radius: 8px;">
+                    <h3 style="margin-bottom: 15px;">Create New Group</h3>
+                    <div class="form-group">
+                        <label>Group Name</label>
+                        <input type="text" id="newGroupName" placeholder="e.g., Moderators, VIP Members">
+                    </div>
+                    <div class="form-group">
+                        <label>Base Role (highest role for this group)</label>
+                        <select id="newGroupRole">
+                            <option value="">-- Select Role --</option>
+                            <% roles.forEach(role => { %>
+                            <option value="<%= role.id %>"><%= role.name %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <button onclick="createGroup()" class="btn btn-success">Create Group</button>
+                </div>
+            </section>
+
+            <!-- Excluded Roles for Stats -->
+            <section class="card">
+                <h2>Excluded Roles</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Users with these roles will be excluded from all statistics calculations.
+                </p>
+
+                <div id="excludedRolesDisplay" style="margin-bottom: 20px;">
+                    <% (settings.excludedRoles || []).forEach(roleId => { %>
+                        <% const role = roles.find(r => r.id === roleId); %>
+                        <% if (role) { %>
+                        <span class="role-tag" style="background-color: <%= role.color || '#99AAB5' %>">
+                            <%= role.name %>
+                            <button type="button" onclick="removeExcludedRole('<%= roleId %>')" 
+                                    style="margin-left: 5px; background: none; border: none; color: inherit; cursor: pointer;">✕</button>
+                        </span>
+                        <% } %>
+                    <% }); %>
+                </div>
+
+                <div class="form-group">
+                    <label>Add Role to Exclude</label>
+                    <select id="excludeRoleSelector" onchange="addExcludedRole(this.value)">
+                        <option value="">-- Select Role --</option>
+                        <% roles.forEach(role => { %>
+                        <option value="<%= role.id %>"><%= role.name %></option>
+                        <% }); %>
+                    </select>
+                </div>
+
+                <button onclick="saveSettings()" class="btn btn-success">Save Settings</button>
+            </section>
+
+            <!-- Server Information -->
+            <section class="card">
+                <h2>Server Information</h2>
+                <div class="settings-grid">
+                    <div>
+                        <strong>Server Name:</strong>
+                        <p><%= guildInfo.guild_name || 'Unknown' %></p>
+                    </div>
+                    <div>
+                        <strong>Server ID:</strong>
+                        <p style="font-family: 'Courier New', monospace;"><%= guildInfo.guild_id || 'Unknown' %></p>
+                    </div>
+                    <div>
+                        <strong>Database Created:</strong>
+                        <p><%= guildInfo.creation_date ? new Date(guildInfo.creation_date).toLocaleString() : 'Unknown' %></p>
+                    </div>
+                    <div>
+                        <strong>Total Roles:</strong>
+                        <p><%= roles.length %></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Available Roles -->
+            <section class="card">
+                <h2>Available Roles</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Position</th>
+                            <th>Name</th>
+                            <th>Color</th>
+                            <th>Hoisted</th>
+                            <th>Role ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% roles.forEach(role => { %>
+                        <tr>
+                            <td><%= role.position %></td>
+                            <td>
+                                <span class="role-tag" style="background-color: <%= role.color || '#99AAB5' %>">
+                                    <%= role.name %>
+                                </span>
+                            </td>
+                            <td><%= role.color || 'Default' %></td>
+                            <td><%= role.hoist ? 'Yes' : 'No' %></td>
+                            <td style="font-family: 'Courier New', monospace; font-size: 0.85rem;"><%= role.id %></td>
+                        </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <p class="muted">StatRekt Dashboard - Better alternative to Statbot</p>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        let currentSettings = <%- JSON.stringify(settings) %>;
+        
+        function createGroup() {
+            const name = document.getElementById('newGroupName').value;
+            const roleId = document.getElementById('newGroupRole').value;
+            
+            if (!name || !roleId) {
+                showToast('Please provide both group name and role', 'error');
+                return;
+            }
+
+            if (!currentSettings.roleGroups) {
+                currentSettings.roleGroups = [];
+            }
+
+            currentSettings.roleGroups.push({
+                name: name,
+                roleId: roleId
+            });
+
+            saveSettings().then(() => {
+                window.location.reload();
+            });
+        }
+
+        function deleteGroup(index) {
+            if (confirm('Are you sure you want to delete this group?')) {
+                currentSettings.roleGroups.splice(index, 1);
+                saveSettings().then(() => {
+                    window.location.reload();
+                });
+            }
+        }
+
+        function addExcludedRole(roleId) {
+            if (!roleId) return;
+            
+            if (!currentSettings.excludedRoles) {
+                currentSettings.excludedRoles = [];
+            }
+            
+            if (!currentSettings.excludedRoles.includes(roleId)) {
+                currentSettings.excludedRoles.push(roleId);
+                document.getElementById('excludeRoleSelector').value = '';
+                showToast('Role added to exclusion list. Click Save to apply.', 'success');
+            }
+        }
+
+        function removeExcludedRole(roleId) {
+            if (!currentSettings.excludedRoles) return;
+            
+            currentSettings.excludedRoles = currentSettings.excludedRoles.filter(id => id !== roleId);
+            event.target.parentElement.remove();
+            showToast('Role removed from exclusion list. Click Save to apply.', 'success');
+        }
+
+        async function saveSettings() {
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(currentSettings)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Settings saved successfully!', 'success');
+                    return Promise.resolve();
+                } else {
+                    showToast('Error saving settings: ' + result.error, 'error');
+                    return Promise.reject(result.error);
+                }
+            } catch (error) {
+                showToast('Error saving settings: ' + error.message, 'error');
+                return Promise.reject(error);
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
