@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dashboard": "node dashboard/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "create-test-db": "node create-test-db.js",
+    "test-analytics": "node test-analytics.js",
+    "test": "node test-analytics.js"
   },
   "keywords": [
     "discord",
