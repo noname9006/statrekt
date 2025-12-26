@@ -126,6 +126,7 @@
         </main>
     </div>
 
+    <script src="/js/dashboard.js"></script>
     <script>
         let excludedRolesList = <%- JSON.stringify(pointsConfig.excludedRoles || []) %>;
         
@@ -186,17 +187,6 @@
             } catch (error) {
                 showToast('Error saving configuration: ' + error.message, 'error');
             }
-        }
-
-        function showToast(message, type = 'success') {
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
         }
     </script>
 </body>

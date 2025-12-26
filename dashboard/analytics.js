@@ -426,16 +426,14 @@ function getActivityOverTime(db, startDate, endDate, granularity = 'day') {
     const startTimestamp = startDate.getTime();
     const endTimestamp = endDate.getTime();
     
-    // SQLite doesn't have great date functions, so we'll do this in JavaScript
+    // Get all messages to group them properly
     const query = `
       SELECT 
         timestamp,
-        COUNT(id) as messageCount,
-        COUNT(DISTINCT authorId) as uniqueUsers
+        authorId
       FROM messages
       WHERE timestamp BETWEEN ? AND ?
         AND authorBot = 0
-      GROUP BY timestamp
       ORDER BY timestamp ASC
     `;
     
@@ -464,15 +462,15 @@ function getActivityOverTime(db, startDate, endDate, granularity = 'day') {
           grouped[key] = { messageCount: 0, uniqueUsers: new Set() };
         }
         
-        grouped[key].messageCount += row.messageCount || 0;
-        // Note: This is approximate since we're grouping already counted data
+        grouped[key].messageCount += 1;
+        grouped[key].uniqueUsers.add(row.authorId);
       });
       
       // Convert to array
       const result = Object.entries(grouped).map(([date, data]) => ({
         date,
         messageCount: data.messageCount,
-        uniqueUsers: data.uniqueUsers.size || 0
+        uniqueUsers: data.uniqueUsers.size
       }));
       
       resolve(result);

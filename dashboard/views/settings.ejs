@@ -166,6 +166,7 @@
         </main>
     </div>
 
+    <script src="/js/dashboard.js"></script>
     <script>
         let currentSettings = <%- JSON.stringify(settings) %>;
         
@@ -246,17 +247,6 @@
                 showToast('Error saving settings: ' + error.message, 'error');
                 return Promise.reject(error);
             }
-        }
-
-        function showToast(message, type = 'success') {
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
         }
     </script>
 </body>

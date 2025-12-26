@@ -1,9 +1,32 @@
 // test-analytics.js - Test analytics calculations
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 const analytics = require('./dashboard/analytics');
 
-const dbPath = path.join(__dirname, 'test-server_123456789_2024-01-01_00-00-00.db');
+// Find the most recent database file
+function findDatabaseFile() {
+  const projectRoot = __dirname;
+  const files = fs.readdirSync(projectRoot)
+    .filter(file => file.endsWith('.db'))
+    .map(file => ({
+      name: file,
+      path: path.join(projectRoot, file),
+      mtime: fs.statSync(path.join(projectRoot, file)).mtime
+    }))
+    .sort((a, b) => b.mtime - a.mtime); // Sort by modification time, newest first
+  
+  if (files.length === 0) {
+    console.error('❌ No database files found in project root');
+    console.error('Run "npm run create-test-db" first to create a test database');
+    process.exit(1);
+  }
+  
+  console.log(`Using database: ${files[0].name}\n`);
+  return files[0].path;
+}
+
+const dbPath = findDatabaseFile();
 const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
 
 console.log('Testing analytics calculations...\n');
