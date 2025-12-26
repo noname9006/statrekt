@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= guildInfo.guild_name || 'Server' %> - Messages Analytics</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="sidebar">
+            <div class="nav-header">
+                <h2><%= guildInfo.guild_name || 'Server Analytics' %></h2>
+                <p class="guild-id">ID: <%= guildInfo.guild_id || 'N/A' %></p>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/">📊 Overview</a></li>
+                <li class="active"><a href="/messages">💬 Messages</a></li>
+                <li><a href="/points">⭐ Points</a></li>
+                <li><a href="/settings">⚙️ Settings</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Message Analytics</h1>
+                <div class="timeframe-selector">
+                    <select id="timeframe" onchange="changeTimeframe(this.value)">
+                        <option value="24h" <%= timeframe === '24h' ? 'selected' : '' %>>Last 24 Hours</option>
+                        <option value="week" <%= timeframe === 'week' ? 'selected' : '' %>>Last 7 Days</option>
+                        <option value="month" <%= timeframe === 'month' ? 'selected' : '' %>>Last 30 Days</option>
+                    </select>
+                </div>
+            </header>
+
+            <!-- Activity Over Time Chart -->
+            <section class="card">
+                <h2>Message Activity Over Time</h2>
+                <div class="chart-container">
+                    <canvas id="activityChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Channel Activity -->
+            <section class="card">
+                <h2>Top Channels by Activity</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Channel</th>
+                            <th>Messages</th>
+                            <th>Unique Users</th>
+                            <th>Total Characters</th>
+                            <th>Avg Characters/Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% channelActivity.forEach((channel, index) => { %>
+                        <tr>
+                            <td><%= index + 1 %></td>
+                            <td><%= channel.channelName || channel.channelId %></td>
+                            <td><%= channel.messageCount.toLocaleString() %></td>
+                            <td><%= channel.uniqueUsers %></td>
+                            <td><%= channel.totalCharacters.toLocaleString() %></td>
+                            <td><%= channel.messageCount > 0 ? Math.round(channel.totalCharacters / channel.messageCount) : 0 %></td>
+                        </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Category Activity -->
+            <% if (categoryActivity && categoryActivity.length > 0) { %>
+            <section class="card">
+                <h2>Activity by Category</h2>
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <table class="data-table" style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Category</th>
+                            <th>Messages</th>
+                            <th>Unique Users</th>
+                            <th>Total Characters</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% categoryActivity.forEach((category, index) => { %>
+                        <tr>
+                            <td><%= index + 1 %></td>
+                            <td><%= category.categoryName || 'Uncategorized' %></td>
+                            <td><%= category.messageCount.toLocaleString() %></td>
+                            <td><%= category.uniqueUsers %></td>
+                            <td><%= category.totalCharacters.toLocaleString() %></td>
+                        </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </section>
+            <% } %>
+
+            <!-- Top Users by Characters -->
+            <section class="card">
+                <h2>Top Users by Character Count</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Username</th>
+                            <th>Messages</th>
+                            <th>Total Characters</th>
+                            <th>Avg Characters/Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% topUsers.forEach((user, index) => { %>
+                        <tr>
+                            <td><%= index + 1 %></td>
+                            <td><%= user.authorUsername %></td>
+                            <td><%= user.messageCount.toLocaleString() %></td>
+                            <td><%= user.totalCharacters.toLocaleString() %></td>
+                            <td><%= Math.round(user.avgCharactersPerMessage || 0) %></td>
+                        </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <p>Data from <%= new Date(startDate).toLocaleString() %> to <%= new Date(endDate).toLocaleString() %></p>
+                <p class="muted">StatRekt Dashboard - Better alternative to Statbot</p>
+            </footer>
+        </main>
+    </div>
+
+    <script src="/js/dashboard.js"></script>
+    <script>
+        function changeTimeframe(value) {
+            window.location.href = '/messages?timeframe=' + value;
+        }
+
+        // Activity Over Time Chart
+        const activityData = <%- JSON.stringify(activityOverTime) %>;
+        
+        if (activityData && activityData.length > 0) {
+            const ctx = document.getElementById('activityChart');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: activityData.map(d => d.date),
+                    datasets: [{
+                        label: 'Messages',
+                        data: activityData.map(d => d.messageCount),
+                        borderColor: '#5865F2',
+                        backgroundColor: 'rgba(88, 101, 242, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#b9bbbe'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#b9bbbe'
+                            },
+                            grid: {
+                                color: '#40444b'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#b9bbbe'
+                            },
+                            grid: {
+                                color: '#40444b'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Category Chart
+        const categoryData = <%- JSON.stringify(categoryActivity) %>;
+        
+        if (categoryData && categoryData.length > 0) {
+            const ctx2 = document.getElementById('categoryChart');
+            new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: categoryData.map(c => c.categoryName || 'Uncategorized'),
+                    datasets: [{
+                        label: 'Messages',
+                        data: categoryData.map(c => c.messageCount),
+                        backgroundColor: '#5865F2'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#b9bbbe'
+                            },
+                            grid: {
+                                color: '#40444b'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#b9bbbe'
+                            },
+                            grid: {
+                                color: '#40444b'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

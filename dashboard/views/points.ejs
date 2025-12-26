@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= guildInfo.guild_name || 'Server' %> - Points Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="sidebar">
+            <div class="nav-header">
+                <h2><%= guildInfo.guild_name || 'Server Analytics' %></h2>
+                <p class="guild-id">ID: <%= guildInfo.guild_id || 'N/A' %></p>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/">📊 Overview</a></li>
+                <li><a href="/messages">💬 Messages</a></li>
+                <li class="active"><a href="/points">⭐ Points</a></li>
+                <li><a href="/settings">⚙️ Settings</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Points Dashboard</h1>
+                <div class="timeframe-selector">
+                    <select id="timeframe" onchange="changeTimeframe(this.value)">
+                        <option value="24h" <%= timeframe === '24h' ? 'selected' : '' %>>Last 24 Hours</option>
+                        <option value="week" <%= timeframe === 'week' ? 'selected' : '' %>>Last 7 Days</option>
+                        <option value="month" <%= timeframe === 'month' ? 'selected' : '' %>>Last 30 Days</option>
+                    </select>
+                </div>
+            </header>
+
+            <!-- Points Configuration -->
+            <section class="card">
+                <h2>Points Configuration</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Configure how points are calculated. By default, 1 character = 1 point.
+                </p>
+                
+                <form id="pointsConfigForm">
+                    <div class="form-group">
+                        <label>Default Points per Character</label>
+                        <input type="number" step="0.01" id="defaultMultiplier" 
+                               value="<%= pointsConfig.default || 1 %>" 
+                               style="max-width: 200px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Excluded Roles (users with these roles won't earn points)</label>
+                        <div id="excludedRoles" style="margin-top: 10px;">
+                            <% (pointsConfig.excludedRoles || []).forEach(roleId => { %>
+                                <% const role = roles.find(r => r.id === roleId); %>
+                                <% if (role) { %>
+                                <span class="role-tag" style="background-color: <%= role.color || '#99AAB5' %>">
+                                    <%= role.name %>
+                                    <button type="button" onclick="removeExcludedRole('<%= roleId %>')" 
+                                            style="margin-left: 5px; background: none; border: none; color: inherit; cursor: pointer;">✕</button>
+                                </span>
+                                <% } %>
+                            <% }); %>
+                        </div>
+                        <select id="roleSelector" onchange="addExcludedRole(this.value)" style="margin-top: 10px;">
+                            <option value="">-- Add Role to Exclude --</option>
+                            <% roles.forEach(role => { %>
+                            <option value="<%= role.id %>"><%= role.name %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+
+                    <button type="button" onclick="savePointsConfig()" class="btn btn-success">Save Configuration</button>
+                </form>
+            </section>
+
+            <!-- Top Users by Points -->
+            <section class="card">
+                <h2>Leaderboard - Top Users by Points</h2>
+                <div style="background-color: var(--surface-elevated); padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                    <p style="color: var(--text-secondary); margin: 0;">
+                        <strong>Total Users:</strong> <%= userPoints.length %>
+                    </p>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Username</th>
+                            <th>Total Points</th>
+                            <th>Characters Sent</th>
+                            <th>Points per Character</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% userPoints.slice(0, 100).forEach((user, index) => { %>
+                        <tr>
+                            <td>
+                                <% if (index === 0) { %>
+                                    🥇
+                                <% } else if (index === 1) { %>
+                                    🥈
+                                <% } else if (index === 2) { %>
+                                    🥉
+                                <% } else { %>
+                                    <%= index + 1 %>
+                                <% } %>
+                            </td>
+                            <td><%= user.authorUsername %></td>
+                            <td><strong><%= Math.round(user.totalPoints).toLocaleString() %></strong></td>
+                            <td><%= user.totalCharacters.toLocaleString() %></td>
+                            <td><%= user.totalCharacters > 0 ? (user.totalPoints / user.totalCharacters).toFixed(2) : '0.00' %></td>
+                        </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <p>Data from <%= new Date(startDate).toLocaleString() %> to <%= new Date(endDate).toLocaleString() %></p>
+                <p class="muted">StatRekt Dashboard - Better alternative to Statbot</p>
+            </footer>
+        </main>
+    </div>
+
+    <script src="/js/dashboard.js"></script>
+    <script>
+        let excludedRolesList = <%- JSON.stringify(pointsConfig.excludedRoles || []) %>;
+        
+        function changeTimeframe(value) {
+            window.location.href = '/points?timeframe=' + value;
+        }
+
+        function addExcludedRole(roleId) {
+            if (!roleId || excludedRolesList.includes(roleId)) {
+                document.getElementById('roleSelector').value = '';
+                return;
+            }
+            
+            excludedRolesList.push(roleId);
+            document.getElementById('roleSelector').value = '';
+            
+            // Reload to show updated list (or update DOM dynamically)
+            showToast('Role added to exclusion list. Save configuration to apply changes.', 'success');
+        }
+
+        function removeExcludedRole(roleId) {
+            excludedRolesList = excludedRolesList.filter(id => id !== roleId);
+            
+            // Remove from DOM
+            event.target.parentElement.remove();
+            showToast('Role removed from exclusion list. Save configuration to apply changes.', 'success');
+        }
+
+        async function savePointsConfig() {
+            const defaultMultiplier = parseFloat(document.getElementById('defaultMultiplier').value);
+            
+            const config = {
+                default: defaultMultiplier,
+                excludedRoles: excludedRolesList,
+                channels: {},
+                categories: {}
+            };
+
+            try {
+                const response = await fetch('/api/points-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Points configuration saved successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showToast('Error saving configuration: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showToast('Error saving configuration: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
