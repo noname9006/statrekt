@@ -64,10 +64,10 @@
                     <div class="metric-value"><%= dau.displayValue !== undefined ? dau.displayValue : dau.count %></div>
                     <% if (period1Stats) { %>
                     <div class="metric-comparison">
-                        <% const change = (overallStats.totalMessages || 0) - (period1Stats.totalMessages || 0); %>
-                        <% const pctChange = period1Stats.totalMessages > 0 ? ((change / period1Stats.totalMessages) * 100).toFixed(1) : 0; %>
-                        <span class="<%= change >= 0 ? 'positive' : 'negative' %>">
-                            <%= change >= 0 ? '▲' : '▼' %> <%= Math.abs(change) %> (<%= Math.abs(pctChange) %>%)
+                        <% const dauChange = (dau.count || 0) - (period1Stats.uniqueUsers || 0); %>
+                        <% const dauPctChange = period1Stats.uniqueUsers > 0 ? ((dauChange / period1Stats.uniqueUsers) * 100).toFixed(1) : 0; %>
+                        <span class="<%= dauChange >= 0 ? 'positive' : 'negative' %>">
+                            <%= dauChange >= 0 ? '▲' : '▼' %> <%= Math.abs(dauChange) %> (<%= Math.abs(dauPctChange) %>%)
                         </span>
                     </div>
                     <% } %>

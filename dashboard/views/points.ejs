@@ -210,7 +210,7 @@
             document.querySelectorAll('.channel-multiplier').forEach(input => {
                 const channelId = input.dataset.channelId;
                 const value = parseFloat(input.value);
-                if (!isNaN(value) && value !== '') {
+                if (!isNaN(value)) {
                     channels[channelId] = value;
                 }
             });
@@ -220,7 +220,7 @@
             document.querySelectorAll('.category-multiplier').forEach(input => {
                 const categoryId = input.dataset.categoryId;
                 const value = parseFloat(input.value);
-                if (!isNaN(value) && value !== '') {
+                if (!isNaN(value)) {
                     categories[categoryId] = value;
                 }
             });
