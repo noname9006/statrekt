@@ -252,68 +252,79 @@ function getAllRoles() {
  */
 function getChannelsAndCategories() {
   return new Promise((resolve, reject) => {
-    const query = `
-      SELECT 
-        id, 
-        name, 
-        type, 
-        parentCatId,
-        position
-      FROM channels
-      WHERE deleted = 0
-      ORDER BY position ASC
-    `;
-    
-    db.all(query, [], (err, rows) => {
+    // First check if position column exists
+    db.all("PRAGMA table_info(channels)", [], (err, columns) => {
       if (err) {
         reject(err);
         return;
       }
       
-      // Organize channels by category
-      const categories = {};
-      const uncategorized = [];
+      const hasPosition = columns.some(col => col.name === 'position');
+      const orderBy = hasPosition ? 'position ASC' : 'id ASC';
       
-      rows.forEach(channel => {
-        if (channel.type === 4) {
-          // This is a category
-          categories[channel.id] = {
-            id: channel.id,
-            name: channel.name,
-            position: channel.position,
-            channels: []
-          };
+      const query = `
+        SELECT 
+          id, 
+          name, 
+          type, 
+          parentCatId
+          ${hasPosition ? ', position' : ''}
+        FROM channels
+        WHERE deleted = 0
+        ORDER BY ${orderBy}
+      `;
+      
+      db.all(query, [], (err, rows) => {
+        if (err) {
+          reject(err);
+          return;
         }
-      });
-      
-      // Add channels to their categories
-      rows.forEach(channel => {
-        if (channel.type !== 4) {
-          // This is a channel (not a category)
-          if (channel.parentCatId && categories[channel.parentCatId]) {
-            categories[channel.parentCatId].channels.push({
+        
+        // Organize channels by category
+        const categories = {};
+        const uncategorized = [];
+        
+        rows.forEach(channel => {
+          if (channel.type === 4) {
+            // This is a category
+            categories[channel.id] = {
               id: channel.id,
               name: channel.name,
-              type: channel.type,
-              position: channel.position
-            });
-          } else {
-            uncategorized.push({
-              id: channel.id,
-              name: channel.name,
-              type: channel.type,
-              position: channel.position
-            });
+              position: channel.position || 0,
+              channels: []
+            };
           }
-        }
-      });
-      
-      // Convert to array and sort
-      const categoryList = Object.values(categories).sort((a, b) => a.position - b.position);
-      
-      resolve({
-        categories: categoryList,
-        uncategorized: uncategorized
+        });
+        
+        // Add channels to their categories
+        rows.forEach(channel => {
+          if (channel.type !== 4) {
+            // This is a channel (not a category)
+            if (channel.parentCatId && categories[channel.parentCatId]) {
+              categories[channel.parentCatId].channels.push({
+                id: channel.id,
+                name: channel.name,
+                type: channel.type,
+                position: channel.position || 0
+              });
+            } else {
+              uncategorized.push({
+                id: channel.id,
+                name: channel.name,
+                type: channel.type,
+                position: channel.position || 0
+              });
+            }
+          }
+        });
+        
+        // Convert to array and sort
+        const categoryList = Object.values(categories).sort((a, b) => a.position - b.position);
+        
+        resolve({
+          categories: categoryList,
+          uncategorized: uncategorized
+        });
       });
     });
   });
