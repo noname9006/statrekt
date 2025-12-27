@@ -256,6 +256,38 @@ body {
     letter-spacing: 0.5px;
 }
 
+.data-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 25px;
+}
+
+.data-table th.sortable:hover {
+    color: var(--text-primary);
+    background-color: rgba(88, 101, 242, 0.1);
+}
+
+.data-table th.sortable::after {
+    content: '⇅';
+    position: absolute;
+    right: 8px;
+    opacity: 0.3;
+    font-size: 0.9rem;
+}
+
+.data-table th.sortable.asc::after {
+    content: '▲';
+    opacity: 1;
+    color: var(--primary-color);
+}
+
+.data-table th.sortable.desc::after {
+    content: '▼';
+    opacity: 1;
+    color: var(--primary-color);
+}
+
 .data-table td {
     padding: 12px;
     border-bottom: 1px solid var(--border);

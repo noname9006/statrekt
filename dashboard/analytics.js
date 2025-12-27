@@ -108,7 +108,7 @@ function getMessagingActivityByChannel(db, startDate, endDate) {
         c.parentCatId,
         COUNT(m.id) as messageCount,
         COUNT(DISTINCT m.authorId) as uniqueUsers,
-        SUM(LENGTH(m.content)) as totalCharacters
+        COALESCE(SUM(LENGTH(m.content)), 0) as totalCharacters
       FROM messages m
       LEFT JOIN channels c ON m.channelId = c.id
       WHERE m.timestamp BETWEEN ? AND ?
@@ -141,18 +141,17 @@ function getMessagingActivityByCategory(db, startDate, endDate) {
     
     const query = `
       SELECT 
-        c.parentCatId as categoryId,
-        parent.name as categoryName,
+        COALESCE(c.parentCatId, 'uncategorized') as categoryId,
+        COALESCE(parent.name, 'Uncategorized') as categoryName,
         COUNT(m.id) as messageCount,
         COUNT(DISTINCT m.authorId) as uniqueUsers,
-        SUM(LENGTH(m.content)) as totalCharacters
+        COALESCE(SUM(LENGTH(m.content)), 0) as totalCharacters
       FROM messages m
       LEFT JOIN channels c ON m.channelId = c.id
-      LEFT JOIN channels parent ON c.parentCatId = parent.id
+      LEFT JOIN channels parent ON c.parentCatId = parent.id AND parent.type = 4
       WHERE m.timestamp BETWEEN ? AND ?
         AND m.authorBot = 0
-        AND c.parentCatId IS NOT NULL
-      GROUP BY c.parentCatId
+      GROUP BY COALESCE(c.parentCatId, 'uncategorized'), COALESCE(parent.name, 'Uncategorized')
       ORDER BY messageCount DESC
     `;
     
@@ -184,8 +183,8 @@ function getCharacterCountByUser(db, startDate, endDate, limit = 50) {
         m.authorId,
         m.authorUsername,
         COUNT(m.id) as messageCount,
-        SUM(LENGTH(m.content)) as totalCharacters,
-        AVG(LENGTH(m.content)) as avgCharactersPerMessage
+        COALESCE(SUM(LENGTH(m.content)), 0) as totalCharacters,
+        COALESCE(AVG(LENGTH(m.content)), 0) as avgCharactersPerMessage
       FROM messages m
       WHERE m.timestamp BETWEEN ? AND ?
         AND m.authorBot = 0
@@ -333,8 +332,8 @@ function getOverallStats(db, startDate, endDate) {
         COUNT(id) as totalMessages,
         COUNT(DISTINCT authorId) as uniqueUsers,
         COUNT(DISTINCT channelId) as activeChannels,
-        SUM(LENGTH(content)) as totalCharacters,
-        AVG(LENGTH(content)) as avgMessageLength
+        COALESCE(SUM(LENGTH(content)), 0) as totalCharacters,
+        COALESCE(AVG(LENGTH(content)), 0) as avgMessageLength
       FROM messages
       WHERE timestamp BETWEEN ? AND ?
         AND authorBot = 0
@@ -345,12 +344,13 @@ function getOverallStats(db, startDate, endDate) {
         reject(err);
         return;
       }
-      resolve(row || {
-        totalMessages: 0,
-        uniqueUsers: 0,
-        activeChannels: 0,
-        totalCharacters: 0,
-        avgMessageLength: 0
+      const result = row || {};
+      resolve({
+        totalMessages: result.totalMessages || 0,
+        uniqueUsers: result.uniqueUsers || 0,
+        activeChannels: result.activeChannels || 0,
+        totalCharacters: result.totalCharacters || 0,
+        avgMessageLength: result.avgMessageLength || 0
       });
     });
   });
@@ -375,7 +375,7 @@ function getTopUsers(db, startDate, endDate, limit = 50, excludedRoles = []) {
         m.authorId,
         m.authorUsername,
         COUNT(m.id) as messageCount,
-        SUM(LENGTH(m.content)) as totalCharacters
+        COALESCE(SUM(LENGTH(m.content)), 0) as totalCharacters
       FROM messages m
       WHERE m.timestamp BETWEEN ? AND ?
         AND m.authorBot = 0

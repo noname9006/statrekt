@@ -103,32 +103,126 @@ function initializeDatabase() {
  */
 function getDateRange(timeframe) {
   const now = new Date();
-  let startDate;
+  const moment = require('moment');
+  let startDate, endDate;
   
   switch (timeframe) {
     case '24h':
       startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      endDate = now;
+      break;
+    case 'yesterday':
+      // Yesterday from 00:00 to 23:59
+      startDate = moment().subtract(1, 'days').startOf('day').toDate();
+      endDate = moment().subtract(1, 'days').endOf('day').toDate();
       break;
     case 'week':
       startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      endDate = now;
+      break;
+    case 'lastweek':
+      // Last week (Monday to Sunday)
+      startDate = moment().subtract(1, 'weeks').startOf('isoWeek').toDate();
+      endDate = moment().subtract(1, 'weeks').endOf('isoWeek').toDate();
       break;
     case 'month':
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      endDate = now;
+      break;
+    case 'lastmonth':
+      // Last month (1st to last day)
+      startDate = moment().subtract(1, 'months').startOf('month').toDate();
+      endDate = moment().subtract(1, 'months').endOf('month').toDate();
       break;
     case 'prev_24h':
       startDate = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-      return { startDate, endDate: new Date(now.getTime() - 24 * 60 * 60 * 1000) };
+      endDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      break;
     case 'prev_week':
       startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-      return { startDate, endDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) };
+      endDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
     case 'prev_month':
       startDate = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
-      return { startDate, endDate: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) };
+      endDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      break;
     default:
       startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // Default to week
+      endDate = now;
   }
   
-  return { startDate, endDate: now };
+  return { startDate, endDate };
+}
+
+/**
+ * Get comparison periods (2 previous periods) for a timeframe
+ */
+function getComparisonPeriods(timeframe, startDate, endDate) {
+  const moment = require('moment');
+  const duration = endDate - startDate;
+  
+  // Period 1: immediately before the current period
+  const period1End = new Date(startDate.getTime() - 1);
+  const period1Start = new Date(period1End.getTime() - duration);
+  
+  // Period 2: before period 1
+  const period2End = new Date(period1Start.getTime() - 1);
+  const period2Start = new Date(period2End.getTime() - duration);
+  
+  return {
+    period1: { startDate: period1Start, endDate: period1End },
+    period2: { startDate: period2Start, endDate: period2End }
+  };
+}
+
+/**
+ * Get timeframe display info
+ */
+function getTimeframeInfo(timeframe, startDate, endDate) {
+  const moment = require('moment');
+  
+  switch (timeframe) {
+    case 'yesterday':
+      return {
+        label: `Yesterday (${moment(startDate).format('MMM D, YYYY')})`,
+        showDAU: true,
+        showWAU: false,
+        showMAU: false,
+        dauLabel: 'Daily Active Users'
+      };
+    case 'lastweek':
+      const weekNum = moment(startDate).isoWeek();
+      const weekDates = `${moment(startDate).format('MMM D')} - ${moment(endDate).format('MMM D, YYYY')}`;
+      return {
+        label: `Last Week (Week ${weekNum}: ${weekDates})`,
+        showDAU: true,
+        showWAU: false,
+        showMAU: false,
+        dauLabel: 'Daily Active Users (week average)',
+        isWeekAverage: true
+      };
+    case 'lastmonth':
+      const monthName = moment(startDate).format('MMMM YYYY');
+      return {
+        label: `Last Month (${monthName})`,
+        showDAU: true,
+        showWAU: true,
+        showMAU: false,
+        dauLabel: 'Daily Active Users (month average)',
+        wauLabel: 'Weekly Active Users (month average)',
+        isMonthAverage: true
+      };
+    default:
+      return {
+        label: null,
+        showDAU: true,
+        showWAU: true,
+        showMAU: true,
+        dauLabel: 'Daily Active Users',
+        wauLabel: 'Weekly Active Users',
+        mauLabel: 'Monthly Active Users'
+      };
+  }
 }
 
 /**
@@ -153,6 +247,89 @@ function getAllRoles() {
   });
 }
 
+/**
+ * Get channels and categories structured for display
+ */
+function getChannelsAndCategories() {
+  return new Promise((resolve, reject) => {
+    // First check if position column exists
+    db.all("PRAGMA table_info(channels)", [], (err, columns) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      const hasPosition = columns.some(col => col.name === 'position');
+      const orderBy = hasPosition ? 'position ASC' : 'id ASC';
+      
+      const query = `
+        SELECT 
+          id, 
+          name, 
+          type, 
+          parentCatId
+          ${hasPosition ? ', position' : ''}
+        FROM channels
+        WHERE deleted = 0
+        ORDER BY ${orderBy}
+      `;
+      
+      db.all(query, [], (err, rows) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        // Organize channels by category
+        const categories = {};
+        const uncategorized = [];
+        
+        rows.forEach(channel => {
+          if (channel.type === 4) {
+            // This is a category
+            categories[channel.id] = {
+              id: channel.id,
+              name: channel.name,
+              position: channel.position || 0,
+              channels: []
+            };
+          }
+        });
+        
+        // Add channels to their categories
+        rows.forEach(channel => {
+          if (channel.type !== 4) {
+            // This is a channel (not a category)
+            if (channel.parentCatId && categories[channel.parentCatId]) {
+              categories[channel.parentCatId].channels.push({
+                id: channel.id,
+                name: channel.name,
+                type: channel.type,
+                position: channel.position || 0
+              });
+            } else {
+              uncategorized.push({
+                id: channel.id,
+                name: channel.name,
+                type: channel.type,
+                position: channel.position || 0
+              });
+            }
+          }
+        });
+        
+        // Convert to array and sort
+        const categoryList = Object.values(categories).sort((a, b) => a.position - b.position);
+        
+        resolve({
+          categories: categoryList,
+          uncategorized: uncategorized
+        });
+      });
+    });
+  });
+}
+
 // Routes
 
 /**
@@ -164,6 +341,10 @@ app.get('/', async (req, res) => {
     const compareWith = req.query.compare;
     
     const { startDate, endDate } = getDateRange(timeframe);
+    const timeframeInfo = getTimeframeInfo(timeframe, startDate, endDate);
+    
+    // Get comparison periods (2 previous periods)
+    const comparisonPeriods = getComparisonPeriods(timeframe, startDate, endDate);
     
     // Get all statistics
     const [
@@ -175,7 +356,10 @@ app.get('/', async (req, res) => {
       categoryActivity,
       topUsers,
       reactionsStats,
-      repliesStats
+      repliesStats,
+      // Comparison data
+      period1Stats,
+      period2Stats
     ] = await Promise.all([
       analytics.getOverallStats(db, startDate, endDate),
       analytics.getDAU(db, startDate, endDate),
@@ -185,8 +369,25 @@ app.get('/', async (req, res) => {
       analytics.getMessagingActivityByCategory(db, startDate, endDate),
       analytics.getTopUsers(db, startDate, endDate, 25),
       analytics.getReactionsStats(db, startDate, endDate),
-      analytics.getRepliesStats(db, startDate, endDate)
+      analytics.getRepliesStats(db, startDate, endDate),
+      // Get comparison periods data
+      analytics.getOverallStats(db, comparisonPeriods.period1.startDate, comparisonPeriods.period1.endDate),
+      analytics.getOverallStats(db, comparisonPeriods.period2.startDate, comparisonPeriods.period2.endDate)
     ]);
+    
+    // Calculate averages for week/month views
+    let dauValue = dau.count;
+    let wauValue = wau.count;
+    
+    if (timeframeInfo.isWeekAverage || timeframeInfo.isMonthAverage) {
+      const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+      dauValue = Math.round(dau.count / days);
+      
+      if (timeframeInfo.isMonthAverage) {
+        const weeks = Math.ceil(days / 7);
+        wauValue = Math.round(wau.count / weeks);
+      }
+    }
     
     let comparisonData = null;
     if (compareWith) {
@@ -197,10 +398,11 @@ app.get('/', async (req, res) => {
     res.render('dashboard', {
       guildInfo,
       timeframe,
+      timeframeInfo,
       compareWith,
       overallStats,
-      dau,
-      wau,
+      dau: { ...dau, displayValue: dauValue },
+      wau: { ...wau, displayValue: wauValue },
       mau,
       channelActivity,
       categoryActivity,
@@ -208,6 +410,8 @@ app.get('/', async (req, res) => {
       reactionsStats,
       repliesStats,
       comparisonData,
+      period1Stats,
+      period2Stats,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString()
     });
@@ -273,18 +477,14 @@ app.get('/points', async (req, res) => {
       }
     }
     
-    // Get excluded roles from config
+    // Get excluded roles from config (no longer displayed but kept for backward compatibility)
     const excludedRoles = pointsConfig.excludedRoles || [];
     
-    const userPoints = await analytics.calculateUserPoints(
-      db, 
-      startDate, 
-      endDate, 
-      pointsConfig,
-      excludedRoles
-    );
-    
-    const roles = await getAllRoles();
+    const [userPoints, roles, channelsData] = await Promise.all([
+      analytics.calculateUserPoints(db, startDate, endDate, pointsConfig, excludedRoles),
+      getAllRoles(),
+      getChannelsAndCategories()
+    ]);
     
     res.render('points', {
       guildInfo,
@@ -292,6 +492,8 @@ app.get('/points', async (req, res) => {
       userPoints,
       pointsConfig,
       roles,
+      channels: channelsData.categories,
+      uncategorizedChannels: channelsData.uncategorized,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString()
     });
