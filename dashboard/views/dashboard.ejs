@@ -30,52 +30,73 @@
                 <div class="timeframe-selector">
                     <select id="timeframe" onchange="changeTimeframe(this.value)">
                         <option value="24h" <%= timeframe === '24h' ? 'selected' : '' %>>Last 24 Hours</option>
+                        <option value="yesterday" <%= timeframe === 'yesterday' ? 'selected' : '' %>>Yesterday</option>
                         <option value="week" <%= timeframe === 'week' ? 'selected' : '' %>>Last 7 Days</option>
+                        <option value="lastweek" <%= timeframe === 'lastweek' ? 'selected' : '' %>>Last Week</option>
                         <option value="month" <%= timeframe === 'month' ? 'selected' : '' %>>Last 30 Days</option>
+                        <option value="lastmonth" <%= timeframe === 'lastmonth' ? 'selected' : '' %>>Last Month</option>
                     </select>
                     
+                    <% if (compareWith !== undefined) { %>
                     <select id="compare" onchange="changeComparison(this.value)">
                         <option value="">No Comparison</option>
                         <option value="prev_24h" <%= compareWith === 'prev_24h' ? 'selected' : '' %>>Previous 24h</option>
                         <option value="prev_week" <%= compareWith === 'prev_week' ? 'selected' : '' %>>Previous Week</option>
                         <option value="prev_month" <%= compareWith === 'prev_month' ? 'selected' : '' %>>Previous Month</option>
                     </select>
+                    <% } %>
                 </div>
             </header>
 
             <!-- Key Metrics -->
+            <% if (timeframeInfo && timeframeInfo.label) { %>
+            <div style="background-color: var(--surface-elevated); padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                <p style="color: var(--text-primary); margin: 0; font-size: 1.1em;">
+                    <strong><%= timeframeInfo.label %></strong>
+                </p>
+            </div>
+            <% } %>
+            
             <section class="metrics-grid">
+                <% if (timeframeInfo.showDAU) { %>
                 <div class="metric-card">
-                    <h3>Daily Active Users</h3>
-                    <div class="metric-value"><%= dau.count %></div>
-                    <% if (comparisonData) { %>
+                    <h3><%= timeframeInfo.dauLabel || 'Daily Active Users' %></h3>
+                    <div class="metric-value"><%= dau.displayValue !== undefined ? dau.displayValue : dau.count %></div>
+                    <% if (period1Stats) { %>
                     <div class="metric-comparison">
-                        <% const change = dau.count - (comparisonData.uniqueUsers || 0); %>
+                        <% const change = (overallStats.totalMessages || 0) - (period1Stats.totalMessages || 0); %>
+                        <% const pctChange = period1Stats.totalMessages > 0 ? ((change / period1Stats.totalMessages) * 100).toFixed(1) : 0; %>
                         <span class="<%= change >= 0 ? 'positive' : 'negative' %>">
-                            <%= change >= 0 ? '▲' : '▼' %> <%= Math.abs(change) %>
+                            <%= change >= 0 ? '▲' : '▼' %> <%= Math.abs(change) %> (<%= Math.abs(pctChange) %>%)
                         </span>
                     </div>
                     <% } %>
                 </div>
+                <% } %>
 
+                <% if (timeframeInfo.showWAU) { %>
                 <div class="metric-card">
-                    <h3>Weekly Active Users</h3>
-                    <div class="metric-value"><%= wau.count %></div>
+                    <h3><%= timeframeInfo.wauLabel || 'Weekly Active Users' %></h3>
+                    <div class="metric-value"><%= wau.displayValue !== undefined ? wau.displayValue : wau.count %></div>
                 </div>
+                <% } %>
 
+                <% if (timeframeInfo.showMAU) { %>
                 <div class="metric-card">
-                    <h3>Monthly Active Users</h3>
+                    <h3><%= timeframeInfo.mauLabel || 'Monthly Active Users' %></h3>
                     <div class="metric-value"><%= mau.count %></div>
                 </div>
+                <% } %>
 
                 <div class="metric-card">
                     <h3>Total Messages</h3>
                     <div class="metric-value"><%= overallStats.totalMessages.toLocaleString() %></div>
-                    <% if (comparisonData) { %>
+                    <% if (period1Stats) { %>
                     <div class="metric-comparison">
-                        <% const msgChange = overallStats.totalMessages - (comparisonData.totalMessages || 0); %>
+                        <% const msgChange = (overallStats.totalMessages || 0) - (period1Stats.totalMessages || 0); %>
+                        <% const msgPctChange = period1Stats.totalMessages > 0 ? ((msgChange / period1Stats.totalMessages) * 100).toFixed(1) : 0; %>
                         <span class="<%= msgChange >= 0 ? 'positive' : 'negative' %>">
-                            <%= msgChange >= 0 ? '▲' : '▼' %> <%= Math.abs(msgChange).toLocaleString() %>
+                            <%= msgChange >= 0 ? '▲' : '▼' %> <%= Math.abs(msgChange).toLocaleString() %> (<%= Math.abs(msgPctChange) %>%)
                         </span>
                     </div>
                     <% } %>
@@ -84,11 +105,28 @@
                 <div class="metric-card">
                     <h3>Active Channels</h3>
                     <div class="metric-value"><%= overallStats.activeChannels %></div>
+                    <% if (period1Stats) { %>
+                    <div class="metric-comparison">
+                        <% const chanChange = (overallStats.activeChannels || 0) - (period1Stats.activeChannels || 0); %>
+                        <span class="<%= chanChange >= 0 ? 'positive' : 'negative' %>">
+                            <%= chanChange >= 0 ? '▲' : '▼' %> <%= Math.abs(chanChange) %>
+                        </span>
+                    </div>
+                    <% } %>
                 </div>
 
                 <div class="metric-card">
                     <h3>Total Characters</h3>
                     <div class="metric-value"><%= overallStats.totalCharacters.toLocaleString() %></div>
+                    <% if (period1Stats) { %>
+                    <div class="metric-comparison">
+                        <% const charChange = (overallStats.totalCharacters || 0) - (period1Stats.totalCharacters || 0); %>
+                        <% const charPctChange = period1Stats.totalCharacters > 0 ? ((charChange / period1Stats.totalCharacters) * 100).toFixed(1) : 0; %>
+                        <span class="<%= charChange >= 0 ? 'positive' : 'negative' %>">
+                            <%= charChange >= 0 ? '▲' : '▼' %> <%= Math.abs(charChange).toLocaleString() %> (<%= Math.abs(charPctChange) %>%)
+                        </span>
+                    </div>
+                    <% } %>
                 </div>
 
                 <div class="metric-card">
@@ -130,22 +168,22 @@
             <!-- Top Users -->
             <section class="card">
                 <h2>Top Users by Messages</h2>
-                <table class="data-table">
+                <table class="data-table sortable-table">
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Username</th>
-                            <th>Messages</th>
-                            <th>Characters</th>
+                            <th class="sortable" data-sort="name">Username</th>
+                            <th class="sortable" data-sort="messages">Messages</th>
+                            <th class="sortable" data-sort="characters">Characters</th>
                         </tr>
                     </thead>
                     <tbody>
                         <% topUsers.slice(0, 15).forEach((user, index) => { %>
                         <tr>
                             <td><%= index + 1 %></td>
-                            <td><%= user.authorUsername %></td>
-                            <td><%= user.messageCount.toLocaleString() %></td>
-                            <td><%= user.totalCharacters.toLocaleString() %></td>
+                            <td data-value="<%= user.authorUsername %>"><%= user.authorUsername %></td>
+                            <td data-value="<%= user.messageCount %>"><%= user.messageCount.toLocaleString() %></td>
+                            <td data-value="<%= user.totalCharacters %>"><%= user.totalCharacters.toLocaleString() %></td>
                         </tr>
                         <% }); %>
                     </tbody>
@@ -155,24 +193,24 @@
             <!-- Top Channels -->
             <section class="card">
                 <h2>Top Channels by Activity</h2>
-                <table class="data-table">
+                <table class="data-table sortable-table">
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Channel</th>
-                            <th>Messages</th>
-                            <th>Unique Users</th>
-                            <th>Characters</th>
+                            <th class="sortable" data-sort="name">Channel</th>
+                            <th class="sortable" data-sort="messages">Messages</th>
+                            <th class="sortable" data-sort="users">Unique Users</th>
+                            <th class="sortable" data-sort="characters">Characters</th>
                         </tr>
                     </thead>
                     <tbody>
                         <% channelActivity.slice(0, 15).forEach((channel, index) => { %>
                         <tr>
                             <td><%= index + 1 %></td>
-                            <td><%= channel.channelName || channel.channelId %></td>
-                            <td><%= channel.messageCount.toLocaleString() %></td>
-                            <td><%= channel.uniqueUsers %></td>
-                            <td><%= channel.totalCharacters.toLocaleString() %></td>
+                            <td data-value="<%= channel.channelName || channel.channelId %>"><%= channel.channelName || channel.channelId %></td>
+                            <td data-value="<%= channel.messageCount %>"><%= channel.messageCount.toLocaleString() %></td>
+                            <td data-value="<%= channel.uniqueUsers %>"><%= channel.uniqueUsers %></td>
+                            <td data-value="<%= channel.totalCharacters %>"><%= channel.totalCharacters.toLocaleString() %></td>
                         </tr>
                         <% }); %>
                     </tbody>
@@ -183,24 +221,24 @@
             <% if (categoryActivity && categoryActivity.length > 0) { %>
             <section class="card">
                 <h2>Top Categories by Activity</h2>
-                <table class="data-table">
+                <table class="data-table sortable-table">
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Category</th>
-                            <th>Messages</th>
-                            <th>Unique Users</th>
-                            <th>Characters</th>
+                            <th class="sortable" data-sort="name">Category</th>
+                            <th class="sortable" data-sort="messages">Messages</th>
+                            <th class="sortable" data-sort="users">Unique Users</th>
+                            <th class="sortable" data-sort="characters">Characters</th>
                         </tr>
                     </thead>
                     <tbody>
                         <% categoryActivity.forEach((category, index) => { %>
                         <tr>
                             <td><%= index + 1 %></td>
-                            <td><%= category.categoryName || 'Uncategorized' %></td>
-                            <td><%= category.messageCount.toLocaleString() %></td>
-                            <td><%= category.uniqueUsers %></td>
-                            <td><%= category.totalCharacters.toLocaleString() %></td>
+                            <td data-value="<%= category.categoryName || 'Uncategorized' %>"><%= category.categoryName || 'Uncategorized' %></td>
+                            <td data-value="<%= category.messageCount %>"><%= category.messageCount.toLocaleString() %></td>
+                            <td data-value="<%= category.uniqueUsers %>"><%= category.uniqueUsers %></td>
+                            <td data-value="<%= category.totalCharacters %>"><%= category.totalCharacters.toLocaleString() %></td>
                         </tr>
                         <% }); %>
                     </tbody>
@@ -219,10 +257,10 @@
     <script src="/js/dashboard.js"></script>
     <script>
         function changeTimeframe(value) {
-            const compare = document.getElementById('compare').value;
+            const compareEl = document.getElementById('compare');
             let url = '/?timeframe=' + value;
-            if (compare) {
-                url += '&compare=' + compare;
+            if (compareEl && compareEl.value) {
+                url += '&compare=' + compareEl.value;
             }
             window.location.href = url;
         }
@@ -235,6 +273,61 @@
             }
             window.location.href = url;
         }
+
+        // Table sorting functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const tables = document.querySelectorAll('.sortable-table');
+            
+            tables.forEach(table => {
+                const headers = table.querySelectorAll('th.sortable');
+                
+                headers.forEach((header, index) => {
+                    header.addEventListener('click', function() {
+                        const tbody = table.querySelector('tbody');
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+                        const columnIndex = Array.from(header.parentElement.children).indexOf(header);
+                        const sortType = header.dataset.sort;
+                        const isAsc = header.classList.contains('asc');
+                        
+                        // Remove sort classes from all headers
+                        headers.forEach(h => h.classList.remove('asc', 'desc'));
+                        
+                        // Add appropriate class to clicked header
+                        if (isAsc) {
+                            header.classList.add('desc');
+                        } else {
+                            header.classList.add('asc');
+                        }
+                        
+                        // Sort rows
+                        rows.sort((a, b) => {
+                            const aCell = a.children[columnIndex];
+                            const bCell = b.children[columnIndex];
+                            const aVal = aCell.dataset.value || aCell.textContent;
+                            const bVal = bCell.dataset.value || bCell.textContent;
+                            
+                            let comparison = 0;
+                            if (sortType === 'name') {
+                                comparison = aVal.localeCompare(bVal);
+                            } else {
+                                const aNum = parseFloat(aVal) || 0;
+                                const bNum = parseFloat(bVal) || 0;
+                                comparison = aNum - bNum;
+                            }
+                            
+                            return isAsc ? -comparison : comparison;
+                        });
+                        
+                        // Re-append rows in sorted order
+                        rows.forEach((row, index) => {
+                            tbody.appendChild(row);
+                            // Update rank number
+                            row.children[0].textContent = index + 1;
+                        });
+                    });
+                });
+            });
+        });
     </script>
 </body>
 </html>
