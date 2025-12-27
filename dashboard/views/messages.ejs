@@ -30,15 +30,30 @@
                 <div class="timeframe-selector">
                     <select id="timeframe" onchange="changeTimeframe(this.value)">
                         <option value="24h" <%= timeframe === '24h' ? 'selected' : '' %>>Last 24 Hours</option>
+                        <option value="yesterday" <%= timeframe === 'yesterday' ? 'selected' : '' %>>Yesterday</option>
                         <option value="week" <%= timeframe === 'week' ? 'selected' : '' %>>Last 7 Days</option>
+                        <option value="lastweek" <%= timeframe === 'lastweek' ? 'selected' : '' %>>Last Week</option>
                         <option value="month" <%= timeframe === 'month' ? 'selected' : '' %>>Last 30 Days</option>
+                        <option value="lastmonth" <%= timeframe === 'lastmonth' ? 'selected' : '' %>>Last Month</option>
                     </select>
                 </div>
             </header>
 
             <!-- Activity Over Time Chart -->
             <section class="card">
-                <h2>Message Activity Over Time</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0;">Message Activity Over Time</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <select id="chartMetric" onchange="updateChart()" style="padding: 8px 12px; background-color: var(--surface-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px;">
+                            <option value="messages">Messages</option>
+                            <option value="users">Daily Active Users</option>
+                        </select>
+                        <select id="chartType" onchange="updateChart()" style="padding: 8px 12px; background-color: var(--surface-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px;">
+                            <option value="line">Line Chart</option>
+                            <option value="bar">Bar Chart</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="chart-container">
                     <canvas id="activityChart"></canvas>
                 </div>
@@ -47,26 +62,26 @@
             <!-- Channel Activity -->
             <section class="card">
                 <h2>Top Channels by Activity</h2>
-                <table class="data-table">
+                <table class="data-table sortable-table">
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Channel</th>
-                            <th>Messages</th>
-                            <th>Unique Users</th>
-                            <th>Total Characters</th>
-                            <th>Avg Characters/Message</th>
+                            <th class="sortable" data-sort="name">Channel</th>
+                            <th class="sortable" data-sort="messages">Messages</th>
+                            <th class="sortable" data-sort="users">Unique Users</th>
+                            <th class="sortable" data-sort="characters">Total Characters</th>
+                            <th class="sortable" data-sort="avg">Avg Characters/Message</th>
                         </tr>
                     </thead>
                     <tbody>
                         <% channelActivity.forEach((channel, index) => { %>
                         <tr>
                             <td><%= index + 1 %></td>
-                            <td><%= channel.channelName || channel.channelId %></td>
-                            <td><%= channel.messageCount.toLocaleString() %></td>
-                            <td><%= channel.uniqueUsers %></td>
-                            <td><%= channel.totalCharacters.toLocaleString() %></td>
-                            <td><%= channel.messageCount > 0 ? Math.round(channel.totalCharacters / channel.messageCount) : 0 %></td>
+                            <td data-value="<%= channel.channelName || channel.channelId %>"><%= channel.channelName || channel.channelId %></td>
+                            <td data-value="<%= channel.messageCount %>"><%= channel.messageCount.toLocaleString() %></td>
+                            <td data-value="<%= channel.uniqueUsers %>"><%= channel.uniqueUsers %></td>
+                            <td data-value="<%= channel.totalCharacters %>"><%= channel.totalCharacters.toLocaleString() %></td>
+                            <td data-value="<%= channel.messageCount > 0 ? Math.round(channel.totalCharacters / channel.messageCount) : 0 %>"><%= channel.messageCount > 0 ? Math.round(channel.totalCharacters / channel.messageCount) : 0 %></td>
                         </tr>
                         <% }); %>
                     </tbody>
@@ -80,24 +95,24 @@
                 <div class="chart-container">
                     <canvas id="categoryChart"></canvas>
                 </div>
-                <table class="data-table" style="margin-top: 20px;">
+                <table class="data-table sortable-table" style="margin-top: 20px;">
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Category</th>
-                            <th>Messages</th>
-                            <th>Unique Users</th>
-                            <th>Total Characters</th>
+                            <th class="sortable" data-sort="name">Category</th>
+                            <th class="sortable" data-sort="messages">Messages</th>
+                            <th class="sortable" data-sort="users">Unique Users</th>
+                            <th class="sortable" data-sort="characters">Total Characters</th>
                         </tr>
                     </thead>
                     <tbody>
                         <% categoryActivity.forEach((category, index) => { %>
                         <tr>
                             <td><%= index + 1 %></td>
-                            <td><%= category.categoryName || 'Uncategorized' %></td>
-                            <td><%= category.messageCount.toLocaleString() %></td>
-                            <td><%= category.uniqueUsers %></td>
-                            <td><%= category.totalCharacters.toLocaleString() %></td>
+                            <td data-value="<%= category.categoryName || 'Uncategorized' %>"><%= category.categoryName || 'Uncategorized' %></td>
+                            <td data-value="<%= category.messageCount %>"><%= category.messageCount.toLocaleString() %></td>
+                            <td data-value="<%= category.uniqueUsers %>"><%= category.uniqueUsers %></td>
+                            <td data-value="<%= category.totalCharacters %>"><%= category.totalCharacters.toLocaleString() %></td>
                         </tr>
                         <% }); %>
                     </tbody>
@@ -108,24 +123,24 @@
             <!-- Top Users by Characters -->
             <section class="card">
                 <h2>Top Users by Character Count</h2>
-                <table class="data-table">
+                <table class="data-table sortable-table">
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Username</th>
-                            <th>Messages</th>
-                            <th>Total Characters</th>
-                            <th>Avg Characters/Message</th>
+                            <th class="sortable" data-sort="name">Username</th>
+                            <th class="sortable" data-sort="messages">Messages</th>
+                            <th class="sortable" data-sort="characters">Total Characters</th>
+                            <th class="sortable" data-sort="avg">Avg Characters/Message</th>
                         </tr>
                     </thead>
                     <tbody>
                         <% topUsers.forEach((user, index) => { %>
                         <tr>
                             <td><%= index + 1 %></td>
-                            <td><%= user.authorUsername %></td>
-                            <td><%= user.messageCount.toLocaleString() %></td>
-                            <td><%= user.totalCharacters.toLocaleString() %></td>
-                            <td><%= Math.round(user.avgCharactersPerMessage || 0) %></td>
+                            <td data-value="<%= user.authorUsername %>"><%= user.authorUsername %></td>
+                            <td data-value="<%= user.messageCount %>"><%= user.messageCount.toLocaleString() %></td>
+                            <td data-value="<%= user.totalCharacters %>"><%= user.totalCharacters.toLocaleString() %></td>
+                            <td data-value="<%= Math.round(user.avgCharactersPerMessage || 0) %>"><%= Math.round(user.avgCharactersPerMessage || 0) %></td>
                         </tr>
                         <% }); %>
                     </tbody>
@@ -148,20 +163,43 @@
 
         // Activity Over Time Chart
         const activityData = <%- JSON.stringify(activityOverTime) %>;
+        let activityChart = null;
         
-        if (activityData && activityData.length > 0) {
+        function formatDateLabel(dateStr) {
+            const date = new Date(dateStr);
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const dayOfWeek = dayNames[date.getDay()];
+            const month = date.toLocaleDateString('en-US', { month: 'short' });
+            const day = date.getDate();
+            return `${dayOfWeek} ${month} ${day}`;
+        }
+        
+        function updateChart() {
+            const metric = document.getElementById('chartMetric').value;
+            const chartType = document.getElementById('chartType').value;
+            
+            if (activityChart) {
+                activityChart.destroy();
+            }
+            
             const ctx = document.getElementById('activityChart');
-            new Chart(ctx, {
-                type: 'line',
+            const labels = activityData.map(d => formatDateLabel(d.date));
+            const data = metric === 'messages' 
+                ? activityData.map(d => d.messageCount)
+                : activityData.map(d => d.uniqueUsers);
+            const label = metric === 'messages' ? 'Messages' : 'Daily Active Users';
+            
+            activityChart = new Chart(ctx, {
+                type: chartType,
                 data: {
-                    labels: activityData.map(d => d.date),
+                    labels: labels,
                     datasets: [{
-                        label: 'Messages',
-                        data: activityData.map(d => d.messageCount),
+                        label: label,
+                        data: data,
                         borderColor: '#5865F2',
-                        backgroundColor: 'rgba(88, 101, 242, 0.1)',
+                        backgroundColor: chartType === 'bar' ? '#5865F2' : 'rgba(88, 101, 242, 0.1)',
                         tension: 0.4,
-                        fill: true
+                        fill: chartType === 'line'
                     }]
                 },
                 options: {
@@ -186,7 +224,9 @@
                         },
                         x: {
                             ticks: {
-                                color: '#b9bbbe'
+                                color: '#b9bbbe',
+                                maxRotation: 45,
+                                minRotation: 45
                             },
                             grid: {
                                 color: '#40444b'
@@ -195,6 +235,10 @@
                     }
                 }
             });
+        }
+        
+        if (activityData && activityData.length > 0) {
+            updateChart();
         }
 
         // Category Chart
@@ -242,6 +286,61 @@
                 }
             });
         }
+
+        // Table sorting functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const tables = document.querySelectorAll('.sortable-table');
+            
+            tables.forEach(table => {
+                const headers = table.querySelectorAll('th.sortable');
+                
+                headers.forEach((header, index) => {
+                    header.addEventListener('click', function() {
+                        const tbody = table.querySelector('tbody');
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+                        const columnIndex = Array.from(header.parentElement.children).indexOf(header);
+                        const sortType = header.dataset.sort;
+                        const isAsc = header.classList.contains('asc');
+                        
+                        // Remove sort classes from all headers
+                        headers.forEach(h => h.classList.remove('asc', 'desc'));
+                        
+                        // Add appropriate class to clicked header
+                        if (isAsc) {
+                            header.classList.add('desc');
+                        } else {
+                            header.classList.add('asc');
+                        }
+                        
+                        // Sort rows
+                        rows.sort((a, b) => {
+                            const aCell = a.children[columnIndex];
+                            const bCell = b.children[columnIndex];
+                            const aVal = aCell.dataset.value || aCell.textContent;
+                            const bVal = bCell.dataset.value || bCell.textContent;
+                            
+                            let comparison = 0;
+                            if (sortType === 'name') {
+                                comparison = aVal.localeCompare(bVal);
+                            } else {
+                                const aNum = parseFloat(aVal) || 0;
+                                const bNum = parseFloat(bVal) || 0;
+                                comparison = aNum - bNum;
+                            }
+                            
+                            return isAsc ? -comparison : comparison;
+                        });
+                        
+                        // Re-append rows in sorted order
+                        rows.forEach((row, index) => {
+                            tbody.appendChild(row);
+                            // Update rank number
+                            row.children[0].textContent = index + 1;
+                        });
+                    });
+                });
+            });
+        });
     </script>
 </body>
 </html>

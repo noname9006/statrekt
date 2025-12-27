@@ -247,6 +247,78 @@ function getAllRoles() {
   });
 }
 
+/**
+ * Get channels and categories structured for display
+ */
+function getChannelsAndCategories() {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 
+        id, 
+        name, 
+        type, 
+        parentCatId,
+        position
+      FROM channels
+      WHERE deleted = 0
+      ORDER BY position ASC
+    `;
+    
+    db.all(query, [], (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      // Organize channels by category
+      const categories = {};
+      const uncategorized = [];
+      
+      rows.forEach(channel => {
+        if (channel.type === 4) {
+          // This is a category
+          categories[channel.id] = {
+            id: channel.id,
+            name: channel.name,
+            position: channel.position,
+            channels: []
+          };
+        }
+      });
+      
+      // Add channels to their categories
+      rows.forEach(channel => {
+        if (channel.type !== 4) {
+          // This is a channel (not a category)
+          if (channel.parentCatId && categories[channel.parentCatId]) {
+            categories[channel.parentCatId].channels.push({
+              id: channel.id,
+              name: channel.name,
+              type: channel.type,
+              position: channel.position
+            });
+          } else {
+            uncategorized.push({
+              id: channel.id,
+              name: channel.name,
+              type: channel.type,
+              position: channel.position
+            });
+          }
+        }
+      });
+      
+      // Convert to array and sort
+      const categoryList = Object.values(categories).sort((a, b) => a.position - b.position);
+      
+      resolve({
+        categories: categoryList,
+        uncategorized: uncategorized
+      });
+    });
+  });
+}
+
 // Routes
 
 /**
@@ -394,18 +466,14 @@ app.get('/points', async (req, res) => {
       }
     }
     
-    // Get excluded roles from config
+    // Get excluded roles from config (no longer displayed but kept for backward compatibility)
     const excludedRoles = pointsConfig.excludedRoles || [];
     
-    const userPoints = await analytics.calculateUserPoints(
-      db, 
-      startDate, 
-      endDate, 
-      pointsConfig,
-      excludedRoles
-    );
-    
-    const roles = await getAllRoles();
+    const [userPoints, roles, channelsData] = await Promise.all([
+      analytics.calculateUserPoints(db, startDate, endDate, pointsConfig, excludedRoles),
+      getAllRoles(),
+      getChannelsAndCategories()
+    ]);
     
     res.render('points', {
       guildInfo,
@@ -413,6 +481,8 @@ app.get('/points', async (req, res) => {
       userPoints,
       pointsConfig,
       roles,
+      channels: channelsData.categories,
+      uncategorizedChannels: channelsData.uncategorized,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString()
     });

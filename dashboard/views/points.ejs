@@ -51,25 +51,82 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Excluded Roles (users with these roles won't earn points)</label>
-                        <div id="excludedRoles" style="margin-top: 10px;">
-                            <% (pointsConfig.excludedRoles || []).forEach(roleId => { %>
-                                <% const role = roles.find(r => r.id === roleId); %>
-                                <% if (role) { %>
-                                <span class="role-tag" style="background-color: <%= role.color || '#99AAB5' %>">
-                                    <%= role.name %>
-                                    <button type="button" onclick="removeExcludedRole('<%= roleId %>')" 
-                                            style="margin-left: 5px; background: none; border: none; color: inherit; cursor: pointer;">✕</button>
-                                </span>
-                                <% } %>
-                            <% }); %>
+                        <label>Channel & Category Multipliers</label>
+                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 10px;">
+                            Set custom multipliers for specific channels or categories. Channel multipliers take precedence over category multipliers.
+                        </p>
+                        
+                        <div id="channelsContainer" style="margin-top: 15px;">
+                            <% if (channels && channels.length > 0) { %>
+                                <% channels.forEach(category => { %>
+                                    <div class="category-section" style="margin-bottom: 15px;">
+                                        <div class="category-header" onclick="toggleCategory('<%= category.id %>')" 
+                                             style="cursor: pointer; background-color: var(--surface-elevated); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <span class="category-arrow" id="arrow-<%= category.id %>">▼</span>
+                                                <strong><%= category.name %></strong>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 10px;" onclick="event.stopPropagation();">
+                                                <label style="margin: 0; font-size: 0.85rem;">Multiplier:</label>
+                                                <input type="number" 
+                                                       step="0.01" 
+                                                       class="category-multiplier"
+                                                       data-category-id="<%= category.id %>"
+                                                       value="<%= (pointsConfig.categories && pointsConfig.categories[category.id]) || '' %>"
+                                                       placeholder="Default"
+                                                       style="width: 80px; padding: 6px; background-color: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary);">
+                                            </div>
+                                        </div>
+                                        <div class="category-channels" id="channels-<%= category.id %>" style="padding-left: 30px;">
+                                            <% category.channels.forEach(channel => { %>
+                                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin-bottom: 3px; background-color: rgba(255,255,255,0.02); border-radius: 4px;">
+                                                    <span># <%= channel.name %></span>
+                                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                                        <label style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">Multiplier:</label>
+                                                        <input type="number" 
+                                                               step="0.01" 
+                                                               class="channel-multiplier"
+                                                               data-channel-id="<%= channel.id %>"
+                                                               value="<%= (pointsConfig.channels && pointsConfig.channels[channel.id]) || '' %>"
+                                                               placeholder="Default"
+                                                               style="width: 80px; padding: 6px; background-color: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary);">
+                                                    </div>
+                                                </div>
+                                            <% }); %>
+                                        </div>
+                                    </div>
+                                <% }); %>
+                            <% } %>
+                            
+                            <% if (uncategorizedChannels && uncategorizedChannels.length > 0) { %>
+                                <div class="category-section" style="margin-bottom: 15px;">
+                                    <div class="category-header" onclick="toggleCategory('uncategorized')" 
+                                         style="cursor: pointer; background-color: var(--surface-elevated); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <span class="category-arrow" id="arrow-uncategorized">▼</span>
+                                            <strong>Uncategorized Channels</strong>
+                                        </div>
+                                    </div>
+                                    <div class="category-channels" id="channels-uncategorized" style="padding-left: 30px;">
+                                        <% uncategorizedChannels.forEach(channel => { %>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin-bottom: 3px; background-color: rgba(255,255,255,0.02); border-radius: 4px;">
+                                                <span># <%= channel.name %></span>
+                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                    <label style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">Multiplier:</label>
+                                                    <input type="number" 
+                                                           step="0.01" 
+                                                           class="channel-multiplier"
+                                                           data-channel-id="<%= channel.id %>"
+                                                           value="<%= (pointsConfig.channels && pointsConfig.channels[channel.id]) || '' %>"
+                                                           placeholder="Default"
+                                                           style="width: 80px; padding: 6px; background-color: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary);">
+                                                </div>
+                                            </div>
+                                        <% }); %>
+                                    </div>
+                                </div>
+                            <% } %>
                         </div>
-                        <select id="roleSelector" onchange="addExcludedRole(this.value)" style="margin-top: 10px;">
-                            <option value="">-- Add Role to Exclude --</option>
-                            <% roles.forEach(role => { %>
-                            <option value="<%= role.id %>"><%= role.name %></option>
-                            <% }); %>
-                        </select>
                     </div>
 
                     <button type="button" onclick="savePointsConfig()" class="btn btn-success">Save Configuration</button>
@@ -128,41 +185,50 @@
 
     <script src="/js/dashboard.js"></script>
     <script>
-        let excludedRolesList = <%- JSON.stringify(pointsConfig.excludedRoles || []) %>;
-        
         function changeTimeframe(value) {
             window.location.href = '/points?timeframe=' + value;
         }
 
-        function addExcludedRole(roleId) {
-            if (!roleId || excludedRolesList.includes(roleId)) {
-                document.getElementById('roleSelector').value = '';
-                return;
+        function toggleCategory(categoryId) {
+            const channelsDiv = document.getElementById('channels-' + categoryId);
+            const arrow = document.getElementById('arrow-' + categoryId);
+            
+            if (channelsDiv.style.display === 'none') {
+                channelsDiv.style.display = 'block';
+                arrow.textContent = '▼';
+            } else {
+                channelsDiv.style.display = 'none';
+                arrow.textContent = '▶';
             }
-            
-            excludedRolesList.push(roleId);
-            document.getElementById('roleSelector').value = '';
-            
-            // Reload to show updated list (or update DOM dynamically)
-            showToast('Role added to exclusion list. Save configuration to apply changes.', 'success');
-        }
-
-        function removeExcludedRole(roleId) {
-            excludedRolesList = excludedRolesList.filter(id => id !== roleId);
-            
-            // Remove from DOM
-            event.target.parentElement.remove();
-            showToast('Role removed from exclusion list. Save configuration to apply changes.', 'success');
         }
 
         async function savePointsConfig() {
             const defaultMultiplier = parseFloat(document.getElementById('defaultMultiplier').value);
             
+            // Collect channel multipliers
+            const channels = {};
+            document.querySelectorAll('.channel-multiplier').forEach(input => {
+                const channelId = input.dataset.channelId;
+                const value = parseFloat(input.value);
+                if (!isNaN(value) && value !== '') {
+                    channels[channelId] = value;
+                }
+            });
+            
+            // Collect category multipliers
+            const categories = {};
+            document.querySelectorAll('.category-multiplier').forEach(input => {
+                const categoryId = input.dataset.categoryId;
+                const value = parseFloat(input.value);
+                if (!isNaN(value) && value !== '') {
+                    categories[categoryId] = value;
+                }
+            });
+            
             const config = {
                 default: defaultMultiplier,
-                excludedRoles: excludedRolesList,
-                channels: {},
-                categories: {}
+                channels: channels,
+                categories: categories
             };
 
             try {
