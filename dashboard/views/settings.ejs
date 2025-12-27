@@ -33,41 +33,98 @@
                 <h2>Role-Based Groups</h2>
                 <p style="color: var(--text-secondary); margin-bottom: 20px;">
                     Create groups based on users' highest roles for better analytics segmentation.
+                    For Ambassador groups, the system will automatically create sub-groups based on users' highest role within the group.
                 </p>
 
                 <div id="roleGroups">
                     <% (settings.roleGroups || []).forEach((group, index) => { %>
                     <div class="settings-card" style="margin-bottom: 15px;">
-                        <h3><%= group.name %></h3>
-                        <p style="color: var(--text-secondary); font-size: 0.9rem;">
-                            Based on highest role: 
-                            <% const role = roles.find(r => r.id === group.roleId); %>
-                            <span class="role-tag" style="background-color: <%= role ? role.color : '#99AAB5' %>">
-                                <%= role ? role.name : 'Unknown Role' %>
-                            </span>
-                        </p>
-                        <button onclick="deleteGroup(<%= index %>)" class="btn btn-danger" style="margin-top: 10px;">
-                            Delete Group
-                        </button>
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <h3><%= group.name %></h3>
+                                <% if (group.isAmbassadorGroup) { %>
+                                <div style="margin-top: 10px; padding: 10px; background-color: var(--surface); border-radius: 6px; border-left: 3px solid var(--primary-color);">
+                                    <strong style="color: var(--primary-color);">Ambassador Group</strong>
+                                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 5px;">
+                                        Auto-divides users into sub-groups based on their highest role from the selected roles:
+                                    </p>
+                                    <div style="margin-top: 8px;">
+                                        <% (group.roles || []).forEach(roleId => { %>
+                                            <% const role = roles.find(r => r.id === roleId); %>
+                                            <% if (role) { %>
+                                            <span class="role-tag" style="background-color: <%= role.color || '#99AAB5' %>; margin: 2px;">
+                                                <%= role.name %>
+                                            </span>
+                                            <% } %>
+                                        <% }); %>
+                                    </div>
+                                </div>
+                                <% } else { %>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                                    Based on highest role: 
+                                    <% const role = roles.find(r => r.id === group.roleId); %>
+                                    <span class="role-tag" style="background-color: <%= role ? role.color : '#99AAB5' %>">
+                                        <%= role ? role.name : 'Unknown Role' %>
+                                    </span>
+                                </p>
+                                <% } %>
+                            </div>
+                            <button onclick="deleteGroup(<%= index %>)" class="btn btn-danger">
+                                Delete Group
+                            </button>
+                        </div>
                     </div>
                     <% }); %>
                 </div>
 
                 <div style="margin-top: 20px; padding: 20px; background-color: var(--surface-elevated); border-radius: 8px;">
                     <h3 style="margin-bottom: 15px;">Create New Group</h3>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="isAmbassadorGroup" onchange="toggleAmbassadorMode()">
+                            Ambassador Group (auto-divide by highest role)
+                        </label>
+                    </div>
+                    
                     <div class="form-group">
                         <label>Group Name</label>
-                        <input type="text" id="newGroupName" placeholder="e.g., Moderators, VIP Members">
+                        <input type="text" id="newGroupName" placeholder="e.g., Moderators, VIP Members, Ambassadors">
                     </div>
-                    <div class="form-group">
-                        <label>Base Role (highest role for this group)</label>
-                        <select id="newGroupRole">
-                            <option value="">-- Select Role --</option>
-                            <% roles.forEach(role => { %>
-                            <option value="<%= role.id %>"><%= role.name %></option>
-                            <% }); %>
-                        </select>
+                    
+                    <div id="standardGroupFields">
+                        <div class="form-group">
+                            <label>Base Role (highest role for this group)</label>
+                            <select id="newGroupRole">
+                                <option value="">-- Select Role --</option>
+                                <% roles.forEach(role => { %>
+                                <option value="<%= role.id %>"><%= role.name %></option>
+                                <% }); %>
+                            </select>
+                        </div>
                     </div>
+                    
+                    <div id="ambassadorGroupFields" style="display: none;">
+                        <div class="form-group">
+                            <label>Select All Ambassador Roles (users will be grouped by their highest role)</label>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 10px;">
+                                Select all roles that should be part of the ambassador group. The system will automatically create sub-groups for each role.
+                            </p>
+                            <div id="ambassadorRolesList" style="max-height: 300px; overflow-y: auto; padding: 10px; background-color: var(--surface); border-radius: 6px; border: 1px solid var(--border);">
+                                <% roles.forEach(role => { %>
+                                <div style="padding: 8px; margin: 4px 0; background-color: var(--surface-elevated); border-radius: 4px;">
+                                    <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+                                        <input type="checkbox" class="ambassador-role-checkbox" value="<%= role.id %>" style="margin-right: 10px;">
+                                        <span class="role-tag" style="background-color: <%= role.color || '#99AAB5' %>">
+                                            <%= role.name %>
+                                        </span>
+                                    </label>
+                                </div>
+                                <% }); %>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <button onclick="createGroup()" class="btn btn-success">Create Group</button>
                 </div>
             </section>
@@ -170,12 +227,26 @@
     <script>
         let currentSettings = <%- JSON.stringify(settings) %>;
         
+        function toggleAmbassadorMode() {
+            const isAmbassador = document.getElementById('isAmbassadorGroup').checked;
+            const standardFields = document.getElementById('standardGroupFields');
+            const ambassadorFields = document.getElementById('ambassadorGroupFields');
+            
+            if (isAmbassador) {
+                standardFields.style.display = 'none';
+                ambassadorFields.style.display = 'block';
+            } else {
+                standardFields.style.display = 'block';
+                ambassadorFields.style.display = 'none';
+            }
+        }
+        
         function createGroup() {
             const name = document.getElementById('newGroupName').value;
-            const roleId = document.getElementById('newGroupRole').value;
+            const isAmbassadorGroup = document.getElementById('isAmbassadorGroup').checked;
             
-            if (!name || !roleId) {
-                showToast('Please provide both group name and role', 'error');
+            if (!name) {
+                showToast('Please provide a group name', 'error');
                 return;
             }
 
@@ -183,10 +254,35 @@
                 currentSettings.roleGroups = [];
             }
 
-            currentSettings.roleGroups.push({
-                name: name,
-                roleId: roleId
-            });
+            if (isAmbassadorGroup) {
+                // Get all selected ambassador roles
+                const selectedRoles = Array.from(document.querySelectorAll('.ambassador-role-checkbox:checked'))
+                    .map(cb => cb.value);
+                
+                if (selectedRoles.length === 0) {
+                    showToast('Please select at least one role for the ambassador group', 'error');
+                    return;
+                }
+                
+                currentSettings.roleGroups.push({
+                    name: name,
+                    isAmbassadorGroup: true,
+                    roles: selectedRoles
+                });
+            } else {
+                const roleId = document.getElementById('newGroupRole').value;
+                
+                if (!roleId) {
+                    showToast('Please select a role', 'error');
+                    return;
+                }
+                
+                currentSettings.roleGroups.push({
+                    name: name,
+                    roleId: roleId,
+                    isAmbassadorGroup: false
+                });
+            }
 
             saveSettings().then(() => {
                 window.location.reload();
