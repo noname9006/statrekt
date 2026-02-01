@@ -1,0 +1,36 @@
+{
+  "name": "statrekt",
+  "version": "1.0.0",
+  "description": "Discord bot for guild statistics tracking and management",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/noname9006/statrekt.git"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "statistics",
+    "tracking",
+    "guild",
+    "database"
+  ],
+  "author": "noname9006",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/noname9006/statrekt/issues"
+  },
+  "homepage": "https://github.com/noname9006/statrekt#readme",
+  "dependencies": {
+    "discord.js": "^14.0.0",
+    "dotenv": "^16.0.0",
+    "node-cron": "^3.0.0",
+    "sqlite3": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
