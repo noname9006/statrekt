@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= guildInfo.guild_name || 'Server' %> - Active Users</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="sidebar">
+            <div class="nav-header">
+                <h2><%= guildInfo.guild_name || 'Server Analytics' %></h2>
+                <p class="guild-id">ID: <%= guildInfo.guild_id || 'N/A' %></p>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/">📊 Overview</a></li>
+                <li class="active"><a href="/active-users">👥 Active Users</a></li>
+                <li><a href="/messages">💬 Messages</a></li>
+                <li><a href="/points">⭐ Points</a></li>
+                <li><a href="/settings">⚙️ Settings</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Daily Active Users Timeline</h1>
+                <div class="timeframe-selector">
+                    <button id="preset-1d" class="preset-btn" onclick="setPresetRange(1)">1D</button>
+                    <button id="preset-7d" class="preset-btn" onclick="setPresetRange(7)">7D</button>
+                    <button id="preset-30d" class="preset-btn active" onclick="setPresetRange(30)">30D</button>
+                    <button id="preset-90d" class="preset-btn" onclick="setPresetRange(90)">90D</button>
+                    <button id="preset-all" class="preset-btn" onclick="setPresetRange('all')">ALL</button>
+                </div>
+            </header>
+
+            <!-- Key Metrics Summary -->
+            <section class="metrics-grid">
+                <div class="metric-card">
+                    <h3>Average DAU</h3>
+                    <div class="metric-value" id="avgDau">-</div>
+                    <div class="metric-label">in selected period</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Peak DAU</h3>
+                    <div class="metric-value" id="peakDau">-</div>
+                    <div class="metric-label" id="peakDate">-</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Lowest DAU</h3>
+                    <div class="metric-value" id="lowestDau">-</div>
+                    <div class="metric-label" id="lowestDate">-</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Total Days</h3>
+                    <div class="metric-value" id="totalDays">-</div>
+                    <div class="metric-label">in selected period</div>
+                </div>
+            </section>
+
+            <!-- DAU Chart with Timeline -->
+            <section class="card">
+                <h2>Daily Active Users Over Time</h2>
+                <div class="chart-container" style="position: relative; height: 400px;">
+                    <canvas id="dauChart"></canvas>
+                </div>
+                
+                <!-- Timeline Slider -->
+                <div class="timeline-container">
+                    <div class="timeline-labels">
+                        <span id="rangeStart">-</span>
+                        <span id="rangeEnd">-</span>
+                    </div>
+                    <div class="timeline-slider">
+                        <input type="range" id="rangeStartSlider" min="0" max="100" value="0" class="slider">
+                        <input type="range" id="rangeEndSlider" min="0" max="100" value="100" class="slider">
+                        <div class="slider-track">
+                            <div class="slider-range" id="sliderRange"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <p>Drag the timeline slider to adjust the date range</p>
+                <p class="muted">StatRekt Dashboard - Better alternative to Statbot</p>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        // Initialize data from server
+        const fullData = <%- JSON.stringify(dauTimeline) %>;
+        let currentData = [...fullData];
+        
+        let chart = null;
+        
+        // Initialize the chart
+        function initChart(data) {
+            const ctx = document.getElementById('dauChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+            
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.date),
+                    datasets: [{
+                        label: 'Daily Active Users',
+                        data: data.map(d => d.dau),
+                        borderColor: '#5865F2',
+                        backgroundColor: 'rgba(88, 101, 242, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.1,
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                color: '#ffffff'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(47, 49, 54, 0.95)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#b9bbbe',
+                            borderColor: '#202225',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: '#40444b',
+                                borderColor: '#40444b'
+                            },
+                            ticks: {
+                                color: '#b9bbbe',
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#40444b',
+                                borderColor: '#40444b'
+                            },
+                            ticks: {
+                                color: '#b9bbbe',
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+            
+            updateMetrics(data);
+        }
+        
+        // Update metrics based on current data
+        function updateMetrics(data) {
+            if (data.length === 0) {
+                document.getElementById('avgDau').textContent = '0';
+                document.getElementById('peakDau').textContent = '0';
+                document.getElementById('lowestDau').textContent = '0';
+                document.getElementById('totalDays').textContent = '0';
+                document.getElementById('peakDate').textContent = '-';
+                document.getElementById('lowestDate').textContent = '-';
+                return;
+            }
+            
+            const dauValues = data.map(d => d.dau);
+            const avg = Math.round(dauValues.reduce((a, b) => a + b, 0) / dauValues.length);
+            const max = Math.max(...dauValues);
+            const min = Math.min(...dauValues);
+            
+            const peakDay = data.find(d => d.dau === max);
+            const lowestDay = data.find(d => d.dau === min);
+            
+            document.getElementById('avgDau').textContent = avg.toLocaleString();
+            document.getElementById('peakDau').textContent = max.toLocaleString();
+            document.getElementById('lowestDau').textContent = min.toLocaleString();
+            document.getElementById('totalDays').textContent = data.length.toLocaleString();
+            document.getElementById('peakDate').textContent = peakDay ? formatDate(peakDay.date) : '-';
+            document.getElementById('lowestDate').textContent = lowestDay ? formatDate(lowestDay.date) : '-';
+        }
+        
+        // Format date for display
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        
+        // Update date range display
+        function updateRangeLabels(startIdx, endIdx) {
+            if (fullData.length === 0) return;
+            
+            const startDate = fullData[startIdx].date;
+            const endDate = fullData[endIdx].date;
+            
+            document.getElementById('rangeStart').textContent = formatDate(startDate);
+            document.getElementById('rangeEnd').textContent = formatDate(endDate);
+        }
+        
+        // Update slider visual range
+        function updateSliderRange() {
+            const start = parseInt(document.getElementById('rangeStartSlider').value);
+            const end = parseInt(document.getElementById('rangeEndSlider').value);
+            
+            const range = document.getElementById('sliderRange');
+            range.style.left = start + '%';
+            range.style.width = (end - start) + '%';
+        }
+        
+        // Handle slider changes
+        function handleSliderChange() {
+            const startSlider = document.getElementById('rangeStartSlider');
+            const endSlider = document.getElementById('rangeEndSlider');
+            
+            let start = parseInt(startSlider.value);
+            let end = parseInt(endSlider.value);
+            
+            // Ensure start is always before end
+            if (start >= end) {
+                if (this.id === 'rangeStartSlider') {
+                    start = end - 1;
+                    startSlider.value = start;
+                } else {
+                    end = start + 1;
+                    endSlider.value = end;
+                }
+            }
+            
+            // Calculate indices based on percentage
+            const dataLength = fullData.length;
+            const startIdx = Math.floor((start / 100) * (dataLength - 1));
+            const endIdx = Math.floor((end / 100) * (dataLength - 1));
+            
+            // Update current data
+            currentData = fullData.slice(startIdx, endIdx + 1);
+            
+            // Update chart and labels
+            initChart(currentData);
+            updateRangeLabels(startIdx, endIdx);
+            updateSliderRange();
+            
+            // Clear active preset buttons
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+        }
+        
+        // Set preset range (1d, 7d, 30d, etc.)
+        function setPresetRange(days) {
+            const dataLength = fullData.length;
+            
+            let startIdx, endIdx;
+            
+            if (days === 'all') {
+                startIdx = 0;
+                endIdx = dataLength - 1;
+            } else {
+                endIdx = dataLength - 1;
+                startIdx = Math.max(0, dataLength - days);
+            }
+            
+            // Update sliders
+            const startPct = (startIdx / (dataLength - 1)) * 100;
+            const endPct = (endIdx / (dataLength - 1)) * 100;
+            
+            document.getElementById('rangeStartSlider').value = startPct;
+            document.getElementById('rangeEndSlider').value = endPct;
+            
+            // Update display
+            currentData = fullData.slice(startIdx, endIdx + 1);
+            initChart(currentData);
+            updateRangeLabels(startIdx, endIdx);
+            updateSliderRange();
+            
+            // Update active button
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            if (days === 'all') {
+                document.getElementById('preset-all').classList.add('active');
+            } else {
+                document.getElementById(`preset-${days}d`).classList.add('active');
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up slider event listeners
+            document.getElementById('rangeStartSlider').addEventListener('input', handleSliderChange);
+            document.getElementById('rangeEndSlider').addEventListener('input', handleSliderChange);
+            
+            // Initialize with default data (30 days)
+            if (fullData.length > 0) {
+                setPresetRange(30);
+            } else {
+                initChart([]);
+            }
+        });
+    </script>
+</body>
+</html>
