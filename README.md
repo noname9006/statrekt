@@ -4,7 +4,7 @@ A comprehensive web analytics dashboard for Discord servers - a better alternati
 
 ## Features
 
-### 📊 Overview Dashboard
+### Overview Dashboard
 - **Daily Active Users (DAU)** - Track unique users who sent messages in the last 24 hours
 - **Weekly Active Users (WAU)** - Track unique users over the past week
 - **Monthly Active Users (MAU)** - Track unique users over the past month
@@ -14,25 +14,25 @@ A comprehensive web analytics dashboard for Discord servers - a better alternati
 - **Reactions Analytics** - Track messages with reactions and most used emojis
 - **Reply Rate** - Percentage of messages that are replies
 
-### 💬 Message Analytics
+### Message Analytics
 - **Activity Over Time** - Visual charts showing message trends
 - **Channel-by-Channel Breakdown** - Detailed statistics for each channel
 - **Category Analytics** - Aggregate stats by channel categories
 - **Top Users by Character Count** - Leaderboard of most verbose users
 - **Character per Message Metrics** - Average verbosity stats
 
-### ⭐ Points System
+### Points System
 - **Character-Based Points** - Default: 1 character = 1 point
 - **Customizable Multipliers** - Set different point values per channel or category
 - **Role Exclusions** - Exclude users with specific roles from earning points
 - **Leaderboard** - Ranked list of top users by points
 
-### ⚙️ Settings & Configuration
+### Settings & Configuration
 - **Role-Based Groups** - Create groups based on users' highest roles
 - **Excluded Roles** - Exclude specific roles from all statistics
 - **Server Information** - View server metadata and role hierarchy
 
-### 🕐 Timeframe Options
+### Timeframe Options
 - **Last 24 Hours** - Recent activity snapshot
 - **Last 7 Days** - Weekly trends
 - **Last 30 Days** - Monthly overview
@@ -72,14 +72,121 @@ You can customize the port by setting an environment variable:
 DASHBOARD_PORT=8080 npm run dashboard
 ```
 
+## Bot Commands
+
+The Discord bot provides several commands to manage and export guild data. Most commands require the database to be initialized first using `!exportguild`.
+
+### Guild Export & Database Commands
+
+#### `!exportguild`
+Creates and initializes a database for the guild, then exports all guild data including messages, members, roles, and channels.
+
+**Required Permissions:** Administrator (recommended)
+
+**Example:**
+```
+!exportguild
+```
+
+**Note:** The bot automatically creates a database file when this command is first used. This database is required for monitoring and analytics features.
+
+#### `!exportguild process`
+Process NDJSON data files for import into the database.
+
+**Example:**
+```
+!exportguild process
+```
+
+### Channel Management Commands
+
+#### `!channellist`
+Generates a hierarchical tree-like list of all channels and threads in the guild, showing the complete server structure.
+
+**Required Permissions:** Administrator
+
+**Example:**
+```
+!channellist
+```
+
+#### `!ex list`
+Shows all channels currently excluded from monitoring and export operations.
+
+**Required Permissions:** Administrator
+
+**Example:**
+```
+!ex list
+```
+
+#### `!ex add <channel_id|url|mention>`
+Add one or more channels to the exclusion list. Supports channel IDs, URLs, or mentions. Multiple channels can be added in a single command.
+
+**Required Permissions:** Administrator
+
+**Examples:**
+```
+!ex add #general
+!ex add 123456789012345678
+!ex add https://discord.com/channels/123456789/987654321
+!ex add #general #off-topic #spam
+```
+
+#### `!ex remove <channel_id|url|mention>`
+Remove one or more channels from the exclusion list. Supports the same formats as the add command.
+
+**Required Permissions:** Administrator
+
+**Examples:**
+```
+!ex remove #general
+!ex remove 123456789012345678
+!ex remove #general #off-topic
+```
+
+### Database Maintenance Commands
+
+#### `!vacuum`
+Optimize and reduce the database file size by removing deleted records and reorganizing data. This is useful for maintaining database performance, especially after large exports or deletions.
+
+**Required Permissions:** Administrator
+
+**Example:**
+```
+!vacuum
+```
+
+**Note:** The vacuum operation may take some time on large databases. The bot will notify you when the operation is complete.
+
+### Statistics Commands
+
+#### `!memberstats`
+Display detailed member statistics including:
+- Total members (human and bot counts)
+- Top 10 roles by member count
+- Top 10 members with the most roles
+- Role hierarchy and special properties
+
+**Required Permissions:** Administrator
+
+**Example:**
+```
+!memberstats
+```
+
+**Note:** Requires the database to be initialized with `!exportguild` first.
+
 ## Usage
+
+This section covers how to use the web dashboard interface. For Discord bot commands, see the [Bot Commands](#bot-commands) section above.
 
 ### Navigation
 Use the sidebar menu to switch between different views:
-- 📊 **Overview** - Main dashboard with key metrics
-- 💬 **Messages** - Detailed message analytics
-- ⭐ **Points** - Points leaderboard and configuration
-- ⚙️ **Settings** - Server settings and role management
+- **Overview** - Main dashboard with key metrics
+- **Messages** - Detailed message analytics
+- **Points** - Points leaderboard and configuration
+- **Settings** - Server settings and role management
 
 ### Timeframe Selection
 Use the dropdown at the top right to select different timeframes:
