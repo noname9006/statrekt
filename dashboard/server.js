@@ -458,6 +458,33 @@ app.get('/messages', async (req, res) => {
 });
 
 /**
+ * Active Users page - DAU timeline with draggable slider
+ */
+app.get('/active-users', async (req, res) => {
+  try {
+    // Get the full range of data available
+    const now = new Date();
+    const defaultStartDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // Default to 30 days
+    
+    // Check for custom date range from query params
+    const startDate = req.query.startDate ? new Date(req.query.startDate) : defaultStartDate;
+    const endDate = req.query.endDate ? new Date(req.query.endDate) : now;
+    
+    const dauTimeline = await analytics.getDAUOverTime(db, startDate, endDate);
+    
+    res.render('active-users', {
+      guildInfo,
+      dauTimeline,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString()
+    });
+  } catch (error) {
+    console.error('Error loading active users page:', error);
+    res.status(500).send('Error loading active users page: ' + error.message);
+  }
+});
+
+/**
  * Points dashboard page
  */
 app.get('/points', async (req, res) => {
@@ -597,6 +624,12 @@ app.get('/api/analytics/:metric', async (req, res) => {
       case 'activity-timeline':
         const granularity = req.query.granularity || 'day';
         data = await analytics.getActivityOverTime(db, startDate, endDate, granularity);
+        break;
+      case 'dau-timeline':
+        // Use custom date range if provided
+        const customStart = req.query.startDate ? new Date(req.query.startDate) : startDate;
+        const customEnd = req.query.endDate ? new Date(req.query.endDate) : endDate;
+        data = await analytics.getDAUOverTime(db, customStart, customEnd);
         break;
       default:
         return res.status(400).json({ error: 'Unknown metric' });

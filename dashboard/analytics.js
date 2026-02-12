@@ -585,6 +585,68 @@ function calculateUserPoints(db, startDate, endDate, pointsConfig = {}, excluded
   });
 }
 
+/**
+ * Get Daily Active Users over time (for timeline charts)
+ * @param {Object} db - SQLite database connection
+ * @param {Date} startDate - Start of the timeframe
+ * @param {Date} endDate - End of the timeframe
+ * @returns {Promise<Array>} - Array of daily DAU data
+ */
+function getDAUOverTime(db, startDate, endDate) {
+  return new Promise((resolve, reject) => {
+    const startTimestamp = startDate.getTime();
+    const endTimestamp = endDate.getTime();
+    
+    // Get all messages to group them by day
+    const query = `
+      SELECT 
+        timestamp,
+        authorId
+      FROM messages
+      WHERE timestamp BETWEEN ? AND ?
+        AND authorBot = 0
+      ORDER BY timestamp ASC
+    `;
+    
+    db.all(query, [startTimestamp, endTimestamp], (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      // Group by day
+      const grouped = {};
+      
+      rows.forEach(row => {
+        const date = moment(row.timestamp);
+        const key = date.format('YYYY-MM-DD');
+        
+        if (!grouped[key]) {
+          grouped[key] = new Set();
+        }
+        
+        grouped[key].add(row.authorId);
+      });
+      
+      // Convert to array and fill in missing days
+      const result = [];
+      const currentDate = moment(startDate);
+      const endMoment = moment(endDate);
+      
+      while (currentDate.isSameOrBefore(endMoment, 'day')) {
+        const key = currentDate.format('YYYY-MM-DD');
+        result.push({
+          date: key,
+          dau: grouped[key] ? grouped[key].size : 0
+        });
+        currentDate.add(1, 'day');
+      }
+      
+      resolve(result);
+    });
+  });
+}
+
 module.exports = {
   getDAU,
   getWAU,
@@ -597,5 +659,6 @@ module.exports = {
   getOverallStats,
   getTopUsers,
   getActivityOverTime,
-  calculateUserPoints
+  calculateUserPoints,
+  getDAUOverTime
 };
