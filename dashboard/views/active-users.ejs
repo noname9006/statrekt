@@ -270,6 +270,16 @@
             
             // Calculate indices based on percentage
             const dataLength = fullData.length;
+            
+            // Handle edge case when there's only one data point
+            if (dataLength <= 1) {
+                currentData = fullData;
+                initChart(currentData);
+                updateRangeLabels(0, 0);
+                updateSliderRange();
+                return;
+            }
+            
             const startIdx = Math.floor((start / 100) * (dataLength - 1));
             const endIdx = Math.floor((end / 100) * (dataLength - 1));
             
@@ -289,6 +299,17 @@
         function setPresetRange(days) {
             const dataLength = fullData.length;
             
+            // Handle edge case when there's only one data point
+            if (dataLength <= 1) {
+                currentData = fullData;
+                initChart(currentData);
+                if (dataLength === 1) {
+                    updateRangeLabels(0, 0);
+                }
+                updateSliderRange();
+                return;
+            }
+            
             let startIdx, endIdx;
             
             if (days === 'all') {
@@ -299,7 +320,7 @@
                 startIdx = Math.max(0, dataLength - days);
             }
             
-            // Update sliders
+            // Update sliders (safe because dataLength > 1)
             const startPct = (startIdx / (dataLength - 1)) * 100;
             const endPct = (endIdx / (dataLength - 1)) * 100;
             
