@@ -462,9 +462,25 @@ app.get('/messages', async (req, res) => {
  */
 app.get('/active-users', async (req, res) => {
   try {
-    // Get the full range of data available
+    // Get the full range of data available from the database
     const now = new Date();
-    const defaultStartDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // Default to 30 days
+    
+    // Get the earliest message timestamp from the database
+    const getEarliestTimestamp = () => {
+      return new Promise((resolve, reject) => {
+        db.get('SELECT MIN(timestamp) as earliest FROM messages WHERE authorBot = 0', (err, row) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          // If no messages found, default to 30 days ago
+          const earliestTimestamp = row && row.earliest ? row.earliest : now.getTime() - 30 * 24 * 60 * 60 * 1000;
+          resolve(new Date(earliestTimestamp));
+        });
+      });
+    };
+    
+    const defaultStartDate = await getEarliestTimestamp();
     
     // Check for custom date range from query params
     const startDate = req.query.startDate ? new Date(req.query.startDate) : defaultStartDate;
