@@ -886,5 +886,4 @@ module.exports = {
   getWAUOverTime,
   get2WAUOverTime,
   getMAUOverTime
-  getDAUOverTime
 };
