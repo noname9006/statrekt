@@ -786,7 +786,7 @@ function get2WAUOverTime(db, startDate, endDate) {
         
         result.push({
           date: currentDate.format('YYYY-MM-DD'),
-          '2wau': uniqueUsers.size
+          twoWau: uniqueUsers.size
         });
         currentDate.add(1, 'day');
       }
