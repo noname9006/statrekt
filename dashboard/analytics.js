@@ -148,7 +148,7 @@ function getMessagingActivityByCategory(db, startDate, endDate) {
         COALESCE(SUM(LENGTH(m.content)), 0) as totalCharacters
       FROM messages m
       LEFT JOIN channels c ON m.channelId = c.id
-      LEFT JOIN channels parent ON c.parentCatId = parent.id AND parent.type = 4
+      LEFT JOIN channels parent ON c.parentCatId = parent.id
       WHERE m.timestamp BETWEEN ? AND ?
         AND m.authorBot = 0
       GROUP BY COALESCE(c.parentCatId, 'uncategorized'), COALESCE(parent.name, 'Uncategorized')
@@ -430,7 +430,8 @@ function getActivityOverTime(db, startDate, endDate, granularity = 'day') {
     const query = `
       SELECT 
         timestamp,
-        authorId
+        authorId,
+        LENGTH(content) as charCount
       FROM messages
       WHERE timestamp BETWEEN ? AND ?
         AND authorBot = 0
@@ -459,18 +460,20 @@ function getActivityOverTime(db, startDate, endDate, granularity = 'day') {
         }
         
         if (!grouped[key]) {
-          grouped[key] = { messageCount: 0, uniqueUsers: new Set() };
+          grouped[key] = { messageCount: 0, uniqueUsers: new Set(), totalCharacters: 0 };
         }
         
         grouped[key].messageCount += 1;
         grouped[key].uniqueUsers.add(row.authorId);
+        grouped[key].totalCharacters += (row.charCount || 0);
       });
       
       // Convert to array
       const result = Object.entries(grouped).map(([date, data]) => ({
         date,
         messageCount: data.messageCount,
-        uniqueUsers: data.uniqueUsers.size
+        uniqueUsers: data.uniqueUsers.size,
+        totalCharacters: data.totalCharacters
       }));
       
       resolve(result);
@@ -647,6 +650,225 @@ function getDAUOverTime(db, startDate, endDate) {
   });
 }
 
+/**
+ * Get Weekly Active Users over time (for timeline charts)
+ * @param {Object} db - SQLite database connection
+ * @param {Date} startDate - Start of the timeframe
+ * @param {Date} endDate - End of the timeframe
+ * @returns {Promise<Array>} - Array of daily WAU data (rolling 7-day window)
+ */
+function getWAUOverTime(db, startDate, endDate) {
+  return new Promise((resolve, reject) => {
+    const startTimestamp = startDate.getTime();
+    const endTimestamp = endDate.getTime();
+    
+    // Get all messages to group them by day
+    const query = `
+      SELECT 
+        timestamp,
+        authorId
+      FROM messages
+      WHERE timestamp BETWEEN ? AND ?
+        AND authorBot = 0
+      ORDER BY timestamp ASC
+    `;
+    
+    db.all(query, [startTimestamp, endTimestamp], (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      // Group by day
+      const grouped = {};
+      
+      rows.forEach(row => {
+        const date = moment(row.timestamp);
+        const key = date.format('YYYY-MM-DD');
+        
+        if (!grouped[key]) {
+          grouped[key] = new Set();
+        }
+        
+        grouped[key].add(row.authorId);
+      });
+      
+      // Calculate rolling 7-day WAU
+      const result = [];
+      const currentDate = moment(startDate);
+      const endMoment = moment(endDate);
+      
+      while (currentDate.isSameOrBefore(endMoment, 'day')) {
+        const uniqueUsers = new Set();
+        
+        // Look back 7 days from current date
+        for (let i = 0; i < 7; i++) {
+          const lookbackDate = moment(currentDate).subtract(i, 'days');
+          const key = lookbackDate.format('YYYY-MM-DD');
+          
+          if (grouped[key]) {
+            grouped[key].forEach(userId => uniqueUsers.add(userId));
+          }
+        }
+        
+        result.push({
+          date: currentDate.format('YYYY-MM-DD'),
+          wau: uniqueUsers.size
+        });
+        currentDate.add(1, 'day');
+      }
+      
+      resolve(result);
+    });
+  });
+}
+
+/**
+ * Get Bi-Weekly Active Users over time (for timeline charts)
+ * @param {Object} db - SQLite database connection
+ * @param {Date} startDate - Start of the timeframe
+ * @param {Date} endDate - End of the timeframe
+ * @returns {Promise<Array>} - Array of daily 2WAU data (rolling 14-day window)
+ */
+function get2WAUOverTime(db, startDate, endDate) {
+  return new Promise((resolve, reject) => {
+    const startTimestamp = startDate.getTime();
+    const endTimestamp = endDate.getTime();
+    
+    // Get all messages to group them by day
+    const query = `
+      SELECT 
+        timestamp,
+        authorId
+      FROM messages
+      WHERE timestamp BETWEEN ? AND ?
+        AND authorBot = 0
+      ORDER BY timestamp ASC
+    `;
+    
+    db.all(query, [startTimestamp, endTimestamp], (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      // Group by day
+      const grouped = {};
+      
+      rows.forEach(row => {
+        const date = moment(row.timestamp);
+        const key = date.format('YYYY-MM-DD');
+        
+        if (!grouped[key]) {
+          grouped[key] = new Set();
+        }
+        
+        grouped[key].add(row.authorId);
+      });
+      
+      // Calculate rolling 14-day 2WAU
+      const result = [];
+      const currentDate = moment(startDate);
+      const endMoment = moment(endDate);
+      
+      while (currentDate.isSameOrBefore(endMoment, 'day')) {
+        const uniqueUsers = new Set();
+        
+        // Look back 14 days from current date
+        for (let i = 0; i < 14; i++) {
+          const lookbackDate = moment(currentDate).subtract(i, 'days');
+          const key = lookbackDate.format('YYYY-MM-DD');
+          
+          if (grouped[key]) {
+            grouped[key].forEach(userId => uniqueUsers.add(userId));
+          }
+        }
+        
+        result.push({
+          date: currentDate.format('YYYY-MM-DD'),
+          '2wau': uniqueUsers.size
+        });
+        currentDate.add(1, 'day');
+      }
+      
+      resolve(result);
+    });
+  });
+}
+
+/**
+ * Get Monthly Active Users over time (for timeline charts)
+ * @param {Object} db - SQLite database connection
+ * @param {Date} startDate - Start of the timeframe
+ * @param {Date} endDate - End of the timeframe
+ * @returns {Promise<Array>} - Array of daily MAU data (rolling 30-day window)
+ */
+function getMAUOverTime(db, startDate, endDate) {
+  return new Promise((resolve, reject) => {
+    const startTimestamp = startDate.getTime();
+    const endTimestamp = endDate.getTime();
+    
+    // Get all messages to group them by day
+    const query = `
+      SELECT 
+        timestamp,
+        authorId
+      FROM messages
+      WHERE timestamp BETWEEN ? AND ?
+        AND authorBot = 0
+      ORDER BY timestamp ASC
+    `;
+    
+    db.all(query, [startTimestamp, endTimestamp], (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      // Group by day
+      const grouped = {};
+      
+      rows.forEach(row => {
+        const date = moment(row.timestamp);
+        const key = date.format('YYYY-MM-DD');
+        
+        if (!grouped[key]) {
+          grouped[key] = new Set();
+        }
+        
+        grouped[key].add(row.authorId);
+      });
+      
+      // Calculate rolling 30-day MAU
+      const result = [];
+      const currentDate = moment(startDate);
+      const endMoment = moment(endDate);
+      
+      while (currentDate.isSameOrBefore(endMoment, 'day')) {
+        const uniqueUsers = new Set();
+        
+        // Look back 30 days from current date
+        for (let i = 0; i < 30; i++) {
+          const lookbackDate = moment(currentDate).subtract(i, 'days');
+          const key = lookbackDate.format('YYYY-MM-DD');
+          
+          if (grouped[key]) {
+            grouped[key].forEach(userId => uniqueUsers.add(userId));
+          }
+        }
+        
+        result.push({
+          date: currentDate.format('YYYY-MM-DD'),
+          mau: uniqueUsers.size
+        });
+        currentDate.add(1, 'day');
+      }
+      
+      resolve(result);
+    });
+  });
+}
+
 module.exports = {
   getDAU,
   getWAU,
@@ -660,5 +882,9 @@ module.exports = {
   getTopUsers,
   getActivityOverTime,
   calculateUserPoints,
+  getDAUOverTime,
+  getWAUOverTime,
+  get2WAUOverTime,
+  getMAUOverTime
   getDAUOverTime
 };

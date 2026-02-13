@@ -27,7 +27,7 @@
         <!-- Main Content -->
         <main class="main-content">
             <header class="content-header">
-                <h1>Daily Active Users Timeline</h1>
+                <h1>Active Users Timeline</h1>
                 <div class="timeframe-selector">
                     <button id="preset-1d" class="preset-btn" onclick="setPresetRange(1)">1D</button>
                     <button id="preset-7d" class="preset-btn" onclick="setPresetRange(7)">7D</button>
@@ -36,21 +36,31 @@
                     <button id="preset-all" class="preset-btn" onclick="setPresetRange('all')">ALL</button>
                 </div>
             </header>
+            
+            <!-- Metric Selector -->
+            <div style="text-align: center; margin: 20px 0;">
+                <div class="timeframe-selector">
+                    <button id="metric-dau" class="preset-btn active" onclick="setMetric('dau')">DAU</button>
+                    <button id="metric-wau" class="preset-btn" onclick="setMetric('wau')">WAU</button>
+                    <button id="metric-2wau" class="preset-btn" onclick="setMetric('2wau')">2WAU</button>
+                    <button id="metric-mau" class="preset-btn" onclick="setMetric('mau')">MAU</button>
+                </div>
+            </div>
 
             <!-- Key Metrics Summary -->
             <section class="metrics-grid">
                 <div class="metric-card">
-                    <h3>Average DAU</h3>
+                    <h3 id="avgLabel">Average</h3>
                     <div class="metric-value" id="avgDau">-</div>
                     <div class="metric-label">in selected period</div>
                 </div>
                 <div class="metric-card">
-                    <h3>Peak DAU</h3>
+                    <h3 id="peakLabel">Peak</h3>
                     <div class="metric-value" id="peakDau">-</div>
                     <div class="metric-label" id="peakDate">-</div>
                 </div>
                 <div class="metric-card">
-                    <h3>Lowest DAU</h3>
+                    <h3 id="lowestLabel">Lowest</h3>
                     <div class="metric-value" id="lowestDau">-</div>
                     <div class="metric-label" id="lowestDate">-</div>
                 </div>
@@ -94,10 +104,88 @@
 
     <script>
         // Initialize data from server
-        const fullData = <%- JSON.stringify(dauTimeline) %>;
+        const fullDataDAU = <%- JSON.stringify(dauTimeline) %>;
+        const fullDataWAU = <%- JSON.stringify(wauTimeline) %>;
+        const fullData2WAU = <%- JSON.stringify(twoWauTimeline) %>;
+        const fullDataMAU = <%- JSON.stringify(mauTimeline) %>;
+        
+        let currentMetric = 'dau';
+        let fullData = fullDataDAU;
         let currentData = [...fullData];
         
         let chart = null;
+        
+        // Function to set the metric
+        function setMetric(metric) {
+            currentMetric = metric;
+            
+            // Switch the data source
+            switch(metric) {
+                case 'dau':
+                    fullData = fullDataDAU;
+                    break;
+                case 'wau':
+                    fullData = fullDataWAU;
+                    break;
+                case '2wau':
+                    fullData = fullData2WAU;
+                    break;
+                case 'mau':
+                    fullData = fullDataMAU;
+                    break;
+            }
+            
+            // Update metric labels
+            const shortMetric = metric.toUpperCase();
+            document.getElementById('avgLabel').textContent = `Average ${shortMetric}`;
+            document.getElementById('peakLabel').textContent = `Peak ${shortMetric}`;
+            document.getElementById('lowestLabel').textContent = `Lowest ${shortMetric}`;
+            
+            // Update active button
+            document.querySelectorAll('[id^="metric-"]').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`metric-${metric}`).classList.add('active');
+            
+            // Re-apply the current range filter
+            const activePreset = document.querySelector('.preset-btn.active');
+            if (activePreset) {
+                const presetValue = activePreset.id.replace('preset-', '').replace('d', '');
+                setPresetRange(presetValue === 'all' ? 'all' : parseInt(presetValue));
+            } else {
+                currentData = [...fullData];
+                initChart(currentData);
+            }
+        }
+        
+        // Helper functions for metric handling
+        function getMetricValue(dataPoint) {
+            switch(currentMetric) {
+                case 'dau':
+                    return dataPoint.dau || 0;
+                case 'wau':
+                    return dataPoint.wau || 0;
+                case '2wau':
+                    return dataPoint['2wau'] || 0;
+                case 'mau':
+                    return dataPoint.mau || 0;
+                default:
+                    return dataPoint.dau || 0;
+            }
+        }
+        
+        function getMetricLabel() {
+            switch(currentMetric) {
+                case 'dau':
+                    return 'Daily Active Users';
+                case 'wau':
+                    return 'Weekly Active Users';
+                case '2wau':
+                    return 'Bi-Weekly Active Users';
+                case 'mau':
+                    return 'Monthly Active Users';
+                default:
+                    return 'Active Users';
+            }
+        }
         
         // Initialize the chart
         function initChart(data) {
@@ -125,8 +213,8 @@
                 data: {
                     labels: data.map(d => d.date),
                     datasets: [{
-                        label: 'Daily Active Users',
-                        data: data.map(d => d.dau),
+                        label: getMetricLabel(),
+                        data: data.map(d => getMetricValue(d)),
                         borderColor: '#5865F2',
                         backgroundColor: 'rgba(88, 101, 242, 0.1)',
                         borderWidth: 2,
@@ -202,13 +290,13 @@
                 return;
             }
             
-            const dauValues = data.map(d => d.dau);
-            const avg = Math.round(dauValues.reduce((a, b) => a + b, 0) / dauValues.length);
-            const max = Math.max(...dauValues);
-            const min = Math.min(...dauValues);
+            const values = data.map(d => getMetricValue(d));
+            const avg = Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+            const max = Math.max(...values);
+            const min = Math.min(...values);
             
-            const peakDay = data.find(d => d.dau === max);
-            const lowestDay = data.find(d => d.dau === min);
+            const peakDay = data.find(d => getMetricValue(d) === max);
+            const lowestDay = data.find(d => getMetricValue(d) === min);
             
             document.getElementById('avgDau').textContent = avg.toLocaleString();
             document.getElementById('peakDau').textContent = max.toLocaleString();
