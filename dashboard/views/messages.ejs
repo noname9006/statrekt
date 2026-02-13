@@ -214,7 +214,7 @@
         }
         
         // Handle slider changes
-        function handleSliderChange() {
+        function handleSliderChange(event) {
             const startSlider = document.getElementById('rangeStartSlider');
             const endSlider = document.getElementById('rangeEndSlider');
             
@@ -223,7 +223,7 @@
             
             // Ensure start is always before end with boundary checks
             if (start >= end) {
-                if (this.id === 'rangeStartSlider') {
+                if (event && event.target.id === 'rangeStartSlider') {
                     start = Math.max(0, end - 1);
                     startSlider.value = start;
                 } else {
@@ -359,7 +359,7 @@
                         legend: {
                             display: true,
                             labels: {
-                                color: '#ffffff'
+                                color: '#b9bbbe'
                             }
                         },
                         tooltip: {

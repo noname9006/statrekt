@@ -213,7 +213,7 @@
                 minRotation: 45,
                 callback: function(value, index, ticks) {
                     // Show every nth tick based on step size
-                    if (index % stepSize === 0 || index === data.length - 1) {
+                    if (index % stepSize === 0) {
                         return data[index]?.date || this.getLabelForValue(value);
                     }
                     return '';
@@ -269,7 +269,7 @@
                         legend: {
                             display: true,
                             labels: {
-                                color: '#ffffff'
+                                color: '#b9bbbe'
                             }
                         },
                         tooltip: {
@@ -379,7 +379,7 @@
         }
         
         // Handle slider changes
-        function handleSliderChange() {
+        function handleSliderChange(event) {
             const startSlider = document.getElementById('rangeStartSlider');
             const endSlider = document.getElementById('rangeEndSlider');
             
@@ -388,7 +388,7 @@
             
             // Ensure start is always before end with boundary checks
             if (start >= end) {
-                if (this.id === 'rangeStartSlider') {
+                if (event && event.target.id === 'rangeStartSlider') {
                     start = Math.max(0, end - 1);
                     startSlider.value = start;
                 } else {
