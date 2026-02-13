@@ -6,6 +6,7 @@
     <title><%= guildInfo.guild_name || 'Server' %> - Messages Analytics</title>
     <link rel="stylesheet" href="/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -53,8 +54,23 @@
                         </select>
                     </div>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" style="position: relative; height: 400px;">
                     <canvas id="activityChart"></canvas>
+                </div>
+                
+                <!-- Timeline Slider -->
+                <div class="timeline-container">
+                    <div class="timeline-labels">
+                        <span id="rangeStart">-</span>
+                        <span id="rangeEnd">-</span>
+                    </div>
+                    <div class="timeline-slider">
+                        <input type="range" id="rangeStartSlider" min="0" max="100" value="0" class="slider">
+                        <input type="range" id="rangeEndSlider" min="0" max="100" value="100" class="slider">
+                        <div class="slider-track">
+                            <div class="slider-range" id="sliderRange"></div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -148,7 +164,7 @@
 
             <!-- Footer -->
             <footer class="footer">
-                <p>Data from <%= new Date(startDate).toLocaleString() %> to <%= new Date(endDate).toLocaleString() %></p>
+                <p>Drag the timeline slider to adjust the date range</p>
                 <p class="muted">StatRekt Dashboard - Better alternative to Statbot</p>
             </footer>
         </main>
@@ -170,13 +186,95 @@
             return `${dayOfWeek} ${month} ${day}`;
         }
         
+        // Format date for display
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        
+        // Update date range display
+        function updateRangeLabels(startIdx, endIdx) {
+            if (fullActivityData.length === 0) return;
+            
+            const startDate = fullActivityData[startIdx].date;
+            const endDate = fullActivityData[endIdx].date;
+            
+            document.getElementById('rangeStart').textContent = formatDate(startDate);
+            document.getElementById('rangeEnd').textContent = formatDate(endDate);
+        }
+        
+        // Update slider visual range
+        function updateSliderRange() {
+            const start = parseInt(document.getElementById('rangeStartSlider').value);
+            const end = parseInt(document.getElementById('rangeEndSlider').value);
+            
+            const range = document.getElementById('sliderRange');
+            range.style.left = start + '%';
+            range.style.width = (end - start) + '%';
+        }
+        
+        // Handle slider changes
+        function handleSliderChange(event) {
+            const startSlider = document.getElementById('rangeStartSlider');
+            const endSlider = document.getElementById('rangeEndSlider');
+            
+            let start = parseInt(startSlider.value);
+            let end = parseInt(endSlider.value);
+            
+            // Ensure start is always before end with boundary checks
+            if (start >= end) {
+                if (event && event.target.id === 'rangeStartSlider') {
+                    start = Math.max(0, end - 1);
+                    startSlider.value = start;
+                } else {
+                    end = Math.min(100, start + 1);
+                    endSlider.value = end;
+                }
+            }
+            
+            // Additional boundary validation
+            start = Math.max(0, Math.min(100, start));
+            end = Math.max(0, Math.min(100, end));
+            
+            // Calculate indices based on percentage
+            const dataLength = fullActivityData.length;
+            
+            // Handle edge case when there's only one data point
+            if (dataLength <= 1) {
+                currentActivityData = fullActivityData;
+                updateChart();
+                updateRangeLabels(0, 0);
+                updateSliderRange();
+                return;
+            }
+            
+            const startIdx = Math.floor((start / 100) * (dataLength - 1));
+            const endIdx = Math.floor((end / 100) * (dataLength - 1));
+            
+            // Update current data
+            currentActivityData = fullActivityData.slice(startIdx, endIdx + 1);
+            
+            // Update chart and labels
+            updateChart();
+            updateRangeLabels(startIdx, endIdx);
+            updateSliderRange();
+            
+            // Clear active preset buttons
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+        }
+        
         // Set preset range (1d, 7d, 30d, etc.)
         function setPresetRange(days) {
             const dataLength = fullActivityData.length;
             
+            // Handle edge case when there's only one data point
             if (dataLength <= 1) {
                 currentActivityData = fullActivityData;
                 updateChart();
+                if (dataLength === 1) {
+                    updateRangeLabels(0, 0);
+                }
+                updateSliderRange();
                 return;
             }
             
@@ -190,9 +288,18 @@
                 startIdx = Math.max(0, dataLength - days);
             }
             
+            // Update sliders (safe because dataLength > 1)
+            const startPct = (startIdx / (dataLength - 1)) * 100;
+            const endPct = (endIdx / (dataLength - 1)) * 100;
+            
+            document.getElementById('rangeStartSlider').value = startPct;
+            document.getElementById('rangeEndSlider').value = endPct;
+            
             // Update display
             currentActivityData = fullActivityData.slice(startIdx, endIdx + 1);
             updateChart();
+            updateRangeLabels(startIdx, endIdx);
+            updateSliderRange();
             
             // Update active button
             document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
@@ -236,37 +343,71 @@
                         borderColor: '#5865F2',
                         backgroundColor: chartType === 'bar' ? '#5865F2' : 'rgba(88, 101, 242, 0.1)',
                         tension: 0.4,
-                        fill: chartType === 'line'
+                        fill: chartType === 'line',
+                        pointRadius: 3,
+                        pointHoverRadius: 5
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
                     plugins: {
                         legend: {
+                            display: true,
                             labels: {
                                 color: '#b9bbbe'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(47, 49, 54, 0.95)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#b9bbbe',
+                            borderColor: '#202225',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true
+                        },
+                        zoom: {
+                            zoom: {
+                                wheel: {
+                                    enabled: true
+                                },
+                                pinch: {
+                                    enabled: true
+                                },
+                                mode: 'x'
+                            },
+                            pan: {
+                                enabled: true,
+                                mode: 'x'
                             }
                         }
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            ticks: {
-                                color: '#b9bbbe'
-                            },
                             grid: {
-                                color: '#40444b'
+                                color: '#40444b',
+                                borderColor: '#40444b'
+                            },
+                            ticks: {
+                                color: '#b9bbbe',
+                                precision: 0
                             }
                         },
                         x: {
+                            grid: {
+                                color: '#40444b',
+                                borderColor: '#40444b'
+                            },
                             ticks: {
                                 color: '#b9bbbe',
                                 maxRotation: 45,
                                 minRotation: 45
-                            },
-                            grid: {
-                                color: '#40444b'
                             }
                         }
                     }
@@ -274,10 +415,17 @@
             });
         }
         
-        // Initialize with 30-day preset
+        // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            // Set up slider event listeners
+            document.getElementById('rangeStartSlider').addEventListener('input', handleSliderChange);
+            document.getElementById('rangeEndSlider').addEventListener('input', handleSliderChange);
+            
+            // Initialize with default data (30 days)
             if (fullActivityData && fullActivityData.length > 0) {
                 setPresetRange(30);
+            } else {
+                updateChart();
             }
         });
 

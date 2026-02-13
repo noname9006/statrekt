@@ -6,6 +6,7 @@
     <title><%= guildInfo.guild_name || 'Server' %> - Active Users</title>
     <link rel="stylesheet" href="/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -187,6 +188,39 @@
             }
         }
         
+        // Get the step size for x-axis ticks based on metric
+        function getTickStepSize() {
+            switch(currentMetric) {
+                case 'dau':
+                    return 1; // Daily resolution
+                case 'wau':
+                    return 7; // Weekly resolution
+                case '2wau':
+                    return 14; // 2-week resolution
+                case 'mau':
+                    return 30; // Monthly resolution
+                default:
+                    return 1;
+            }
+        }
+        
+        // Configure x-axis ticks callback to show only relevant dates
+        function configureXAxisTicks(data) {
+            const stepSize = getTickStepSize();
+            return {
+                color: '#b9bbbe',
+                maxRotation: 45,
+                minRotation: 45,
+                callback: function(value, index, ticks) {
+                    // Show every nth tick based on step size
+                    if (index % stepSize === 0) {
+                        return data[index]?.date || this.getLabelForValue(value);
+                    }
+                    return '';
+                }
+            };
+        }
+        
         // Initialize the chart
         function initChart(data) {
             const ctx = document.getElementById('dauChart');
@@ -235,7 +269,7 @@
                         legend: {
                             display: true,
                             labels: {
-                                color: '#ffffff'
+                                color: '#b9bbbe'
                             }
                         },
                         tooltip: {
@@ -246,6 +280,21 @@
                             borderWidth: 1,
                             padding: 12,
                             displayColors: true
+                        },
+                        zoom: {
+                            zoom: {
+                                wheel: {
+                                    enabled: true
+                                },
+                                pinch: {
+                                    enabled: true
+                                },
+                                mode: 'x'
+                            },
+                            pan: {
+                                enabled: true,
+                                mode: 'x'
+                            }
                         }
                     },
                     scales: {
@@ -254,11 +303,7 @@
                                 color: '#40444b',
                                 borderColor: '#40444b'
                             },
-                            ticks: {
-                                color: '#b9bbbe',
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
+                            ticks: configureXAxisTicks(data)
                         },
                         y: {
                             beginAtZero: true,
@@ -334,7 +379,7 @@
         }
         
         // Handle slider changes
-        function handleSliderChange() {
+        function handleSliderChange(event) {
             const startSlider = document.getElementById('rangeStartSlider');
             const endSlider = document.getElementById('rangeEndSlider');
             
@@ -343,7 +388,7 @@
             
             // Ensure start is always before end with boundary checks
             if (start >= end) {
-                if (this.id === 'rangeStartSlider') {
+                if (event && event.target.id === 'rangeStartSlider') {
                     start = Math.max(0, end - 1);
                     startSlider.value = start;
                 } else {
