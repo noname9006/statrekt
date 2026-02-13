@@ -447,8 +447,13 @@ app.get('/', async (req, res) => {
  */
 app.get('/messages', async (req, res) => {
   try {
-    const timeframe = req.query.timeframe || 'week';
-    const { startDate, endDate } = getDateRange(timeframe);
+    // Get the full range of data available from the database
+    const now = new Date();
+    const defaultStartDate = await getEarliestTimestamp();
+    
+    // Check for custom date range from query params
+    const startDate = req.query.startDate ? new Date(req.query.startDate) : defaultStartDate;
+    const endDate = req.query.endDate ? new Date(req.query.endDate) : now;
     
     const [
       channelActivity,
@@ -464,7 +469,6 @@ app.get('/messages', async (req, res) => {
     
     res.render('messages', {
       guildInfo,
-      timeframe,
       channelActivity,
       categoryActivity,
       topUsers,
@@ -491,11 +495,20 @@ app.get('/active-users', async (req, res) => {
     const startDate = req.query.startDate ? new Date(req.query.startDate) : defaultStartDate;
     const endDate = req.query.endDate ? new Date(req.query.endDate) : now;
     
-    const dauTimeline = await analytics.getDAUOverTime(db, startDate, endDate);
+    // Get all metrics data
+    const [dauTimeline, wauTimeline, twoWauTimeline, mauTimeline] = await Promise.all([
+      analytics.getDAUOverTime(db, startDate, endDate),
+      analytics.getWAUOverTime(db, startDate, endDate),
+      analytics.get2WAUOverTime(db, startDate, endDate),
+      analytics.getMAUOverTime(db, startDate, endDate)
+    ]);
     
     res.render('active-users', {
       guildInfo,
       dauTimeline,
+      wauTimeline,
+      twoWauTimeline,
+      mauTimeline,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString()
     });

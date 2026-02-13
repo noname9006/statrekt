@@ -29,14 +29,11 @@
             <header class="content-header">
                 <h1>Message Analytics</h1>
                 <div class="timeframe-selector">
-                    <select id="timeframe" onchange="changeTimeframe(this.value)">
-                        <option value="24h" <%= timeframe === '24h' ? 'selected' : '' %>>Last 24 Hours</option>
-                        <option value="yesterday" <%= timeframe === 'yesterday' ? 'selected' : '' %>>Yesterday</option>
-                        <option value="week" <%= timeframe === 'week' ? 'selected' : '' %>>Last 7 Days</option>
-                        <option value="lastweek" <%= timeframe === 'lastweek' ? 'selected' : '' %>>Last Week</option>
-                        <option value="month" <%= timeframe === 'month' ? 'selected' : '' %>>Last 30 Days</option>
-                        <option value="lastmonth" <%= timeframe === 'lastmonth' ? 'selected' : '' %>>Last Month</option>
-                    </select>
+                    <button id="preset-1d" class="preset-btn" onclick="setPresetRange(1)">1D</button>
+                    <button id="preset-7d" class="preset-btn" onclick="setPresetRange(7)">7D</button>
+                    <button id="preset-30d" class="preset-btn active" onclick="setPresetRange(30)">30D</button>
+                    <button id="preset-90d" class="preset-btn" onclick="setPresetRange(90)">90D</button>
+                    <button id="preset-all" class="preset-btn" onclick="setPresetRange('all')">ALL</button>
                 </div>
             </header>
 
@@ -48,10 +45,11 @@
                         <select id="chartMetric" onchange="updateChart()" style="padding: 8px 12px; background-color: var(--surface-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px;">
                             <option value="messages">Messages</option>
                             <option value="users">Daily Active Users</option>
+                            <option value="characters">Characters</option>
                         </select>
                         <select id="chartType" onchange="updateChart()" style="padding: 8px 12px; background-color: var(--surface-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px;">
-                            <option value="line">Line Chart</option>
                             <option value="bar">Bar Chart</option>
+                            <option value="line">Line Chart</option>
                         </select>
                     </div>
                 </div>
@@ -158,12 +156,9 @@
 
     <script src="/js/dashboard.js"></script>
     <script>
-        function changeTimeframe(value) {
-            window.location.href = '/messages?timeframe=' + value;
-        }
-
         // Activity Over Time Chart
-        const activityData = <%- JSON.stringify(activityOverTime) %>;
+        const fullActivityData = <%- JSON.stringify(activityOverTime) %>;
+        let currentActivityData = [...fullActivityData];
         let activityChart = null;
         
         function formatDateLabel(dateStr) {
@@ -175,6 +170,39 @@
             return `${dayOfWeek} ${month} ${day}`;
         }
         
+        // Set preset range (1d, 7d, 30d, etc.)
+        function setPresetRange(days) {
+            const dataLength = fullActivityData.length;
+            
+            if (dataLength <= 1) {
+                currentActivityData = fullActivityData;
+                updateChart();
+                return;
+            }
+            
+            let startIdx, endIdx;
+            
+            if (days === 'all') {
+                startIdx = 0;
+                endIdx = dataLength - 1;
+            } else {
+                endIdx = dataLength - 1;
+                startIdx = Math.max(0, dataLength - days);
+            }
+            
+            // Update display
+            currentActivityData = fullActivityData.slice(startIdx, endIdx + 1);
+            updateChart();
+            
+            // Update active button
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            if (days === 'all') {
+                document.getElementById('preset-all').classList.add('active');
+            } else {
+                document.getElementById(`preset-${days}d`).classList.add('active');
+            }
+        }
+        
         function updateChart() {
             const metric = document.getElementById('chartMetric').value;
             const chartType = document.getElementById('chartType').value;
@@ -184,11 +212,19 @@
             }
             
             const ctx = document.getElementById('activityChart');
-            const labels = activityData.map(d => formatDateLabel(d.date));
-            const data = metric === 'messages' 
-                ? activityData.map(d => d.messageCount)
-                : activityData.map(d => d.uniqueUsers);
-            const label = metric === 'messages' ? 'Messages' : 'Daily Active Users';
+            const labels = currentActivityData.map(d => formatDateLabel(d.date));
+            let data, label;
+            
+            if (metric === 'messages') {
+                data = currentActivityData.map(d => d.messageCount);
+                label = 'Messages';
+            } else if (metric === 'users') {
+                data = currentActivityData.map(d => d.uniqueUsers);
+                label = 'Daily Active Users';
+            } else if (metric === 'characters') {
+                data = currentActivityData.map(d => d.totalCharacters || 0);
+                label = 'Characters';
+            }
             
             activityChart = new Chart(ctx, {
                 type: chartType,
@@ -238,9 +274,12 @@
             });
         }
         
-        if (activityData && activityData.length > 0) {
-            updateChart();
-        }
+        // Initialize with 30-day preset
+        document.addEventListener('DOMContentLoaded', function() {
+            if (fullActivityData && fullActivityData.length > 0) {
+                setPresetRange(30);
+            }
+        });
 
         // Category Chart
         const categoryData = <%- JSON.stringify(categoryActivity) %>;
