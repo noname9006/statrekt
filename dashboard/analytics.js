@@ -151,7 +151,7 @@ function getMessagingActivityByCategory(db, startDate, endDate) {
       LEFT JOIN channels parent ON c.parentCatId = parent.id
       WHERE m.timestamp BETWEEN ? AND ?
         AND m.authorBot = 0
-      GROUP BY COALESCE(c.parentCatId, 'uncategorized'), COALESCE(parent.name, 'Uncategorized')
+      GROUP BY COALESCE(c.parentCatId, 'uncategorized')
       ORDER BY messageCount DESC
     `;
     

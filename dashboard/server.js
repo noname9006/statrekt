@@ -532,7 +532,7 @@ app.get('/active-users', async (req, res) => {
     let settings = { roleGroups: [] };
     try {
       const fs = require('fs');
-      const settingsPath = './settings.json';
+      const settingsPath = path.join(__dirname, 'settings.json');
       if (fs.existsSync(settingsPath)) {
         settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
       }
