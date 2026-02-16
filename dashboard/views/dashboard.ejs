@@ -151,21 +151,6 @@
                 </div>
             </section>
 
-            <!-- Top Reactions -->
-            <% if (reactionsStats.topEmojis && reactionsStats.topEmojis.length > 0) { %>
-            <section class="card">
-                <h2>Top Reactions</h2>
-                <div class="reaction-list">
-                    <% reactionsStats.topEmojis.forEach(emoji => { %>
-                    <div class="reaction-item">
-                        <span class="emoji"><%= emoji.emoji %></span>
-                        <span class="count"><%= emoji.count.toLocaleString() %></span>
-                    </div>
-                    <% }); %>
-                </div>
-            </section>
-            <% } %>
-
             <!-- Top Users -->
             <section class="card">
                 <h2>Top Users by Messages</h2>

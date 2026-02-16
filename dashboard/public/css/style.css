@@ -649,3 +649,41 @@ body {
 .preset-btn:first-child {
     margin-left: 0;
 }
+
+
+/* Sort indicators for table headers */
+th.sortable {
+    position: relative;
+    padding-right: 20px;
+}
+
+th.sortable::after {
+    content: '⬍';
+    position: absolute;
+    right: 8px;
+    opacity: 0.3;
+    font-size: 0.8rem;
+}
+
+th.sortable:hover::after {
+    opacity: 0.6;
+}
+
+th.sort-asc::after {
+    content: '▲';
+    opacity: 1;
+}
+
+th.sort-desc::after {
+    content: '▼';
+    opacity: 1;
+}
+
+/* Activity table specific styles */
+#activityTable {
+    width: 100%;
+}
+
+#activityTable td {
+    padding: 12px;
+}

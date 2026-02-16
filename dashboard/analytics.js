@@ -869,6 +869,113 @@ function getMAUOverTime(db, startDate, endDate) {
   });
 }
 
+/**
+ * Get recent activity for all users
+ * @param {Object} db - SQLite database connection
+ * @param {Object} options - Filter options (channelIds, userIds)
+ * @returns {Promise<Array>} - Array of user activity data
+ */
+function getRecentUserActivity(db, options = {}) {
+  return new Promise((resolve, reject) => {
+    const now = Date.now();
+    const { channelIds, userIds } = options;
+    
+    // Build WHERE clause based on filters
+    let whereClause = 'WHERE m.authorBot = 0';
+    const params = [];
+    
+    if (channelIds && channelIds.length > 0) {
+      const placeholders = channelIds.map(() => '?').join(',');
+      whereClause += ` AND m.channelId IN (${placeholders})`;
+      params.push(...channelIds);
+    }
+    
+    if (userIds && userIds.length > 0) {
+      const placeholders = userIds.map(() => '?').join(',');
+      whereClause += ` AND m.authorId IN (${placeholders})`;
+      params.push(...userIds);
+    }
+    
+    const query = `
+      SELECT 
+        m.authorId,
+        m.authorUsername,
+        MAX(m.timestamp) as lastMessageTimestamp,
+        COUNT(m.id) as totalMessages
+      FROM messages m
+      ${whereClause}
+      GROUP BY m.authorId, m.authorUsername
+      ORDER BY lastMessageTimestamp DESC
+    `;
+    
+    db.all(query, params, (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      // Calculate days since last activity
+      const result = rows.map(row => {
+        const daysSinceLastMessage = Math.floor((now - row.lastMessageTimestamp) / (1000 * 60 * 60 * 24));
+        return {
+          userId: row.authorId,
+          username: row.authorUsername,
+          lastMessageTimestamp: row.lastMessageTimestamp,
+          daysSinceLastMessage: daysSinceLastMessage,
+          totalMessages: row.totalMessages
+        };
+      });
+      
+      resolve(result);
+    });
+  });
+}
+
+/**
+ * Get user roles for filtering
+ * @param {Object} db - SQLite database connection
+ * @returns {Promise<Object>} - Map of userId to their roles
+ */
+function getUserRoles(db) {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 
+        mr.memberId,
+        mr.roleId,
+        mr.roleName,
+        gr.position,
+        gr.color
+      FROM member_roles mr
+      LEFT JOIN guild_roles gr ON mr.roleId = gr.id
+      WHERE gr.deleted = 0 OR gr.deleted IS NULL
+      ORDER BY gr.position DESC, mr.roleName ASC
+    `;
+    
+    db.all(query, [], (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      // Group roles by user
+      const userRoles = {};
+      rows.forEach(row => {
+        if (!userRoles[row.memberId]) {
+          userRoles[row.memberId] = [];
+        }
+        userRoles[row.memberId].push({
+          roleId: row.roleId,
+          roleName: row.roleName,
+          position: row.position || 0,
+          color: row.color
+        });
+      });
+      
+      resolve(userRoles);
+    });
+  });
+}
+
 module.exports = {
   getDAU,
   getWAU,
@@ -885,5 +992,7 @@ module.exports = {
   getDAUOverTime,
   getWAUOverTime,
   get2WAUOverTime,
-  getMAUOverTime
+  getMAUOverTime,
+  getRecentUserActivity,
+  getUserRoles
 };

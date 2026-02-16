@@ -351,6 +351,28 @@ function getChannelsAndCategories() {
   });
 }
 
+/**
+ * Get simple list of all channels
+ */
+function getChannelsList() {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT id, name, type, parentCatId
+      FROM channels
+      WHERE deleted = 0 AND type != 4
+      ORDER BY name ASC
+    `;
+    
+    db.all(query, [], (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(rows || []);
+    });
+  });
+}
+
 // Routes
 
 /**
@@ -495,13 +517,28 @@ app.get('/active-users', async (req, res) => {
     const startDate = req.query.startDate ? new Date(req.query.startDate) : defaultStartDate;
     const endDate = req.query.endDate ? new Date(req.query.endDate) : now;
     
-    // Get all metrics data
-    const [dauTimeline, wauTimeline, twoWauTimeline, mauTimeline] = await Promise.all([
+    // Get all metrics data including recent activity and user roles
+    const [dauTimeline, wauTimeline, twoWauTimeline, mauTimeline, recentActivity, userRoles, channels] = await Promise.all([
       analytics.getDAUOverTime(db, startDate, endDate),
       analytics.getWAUOverTime(db, startDate, endDate),
       analytics.get2WAUOverTime(db, startDate, endDate),
-      analytics.getMAUOverTime(db, startDate, endDate)
+      analytics.getMAUOverTime(db, startDate, endDate),
+      analytics.getRecentUserActivity(db),
+      analytics.getUserRoles(db),
+      getChannelsList()
     ]);
+    
+    // Load settings for role groups
+    let settings = { roleGroups: [] };
+    try {
+      const fs = require('fs');
+      const settingsPath = './settings.json';
+      if (fs.existsSync(settingsPath)) {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      }
+    } catch (err) {
+      console.error('Error loading settings:', err);
+    }
     
     res.render('active-users', {
       guildInfo,
@@ -509,6 +546,10 @@ app.get('/active-users', async (req, res) => {
       wauTimeline,
       twoWauTimeline,
       mauTimeline,
+      recentActivity,
+      userRoles,
+      channels,
+      roleGroups: settings.roleGroups || [],
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString()
     });
