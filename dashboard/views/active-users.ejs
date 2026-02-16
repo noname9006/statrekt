@@ -118,18 +118,22 @@
                                     <% roleGroups.forEach(group => { %>
                                         <% if (group.isAmbassadorGroup && group.roles && group.roles.length > 0) { %>
                                             <% // For ambassador groups, show individual roles %>
-                                            <% // Get role details from userRoles data %>
-                                            <% const ambassadorRoles = new Map(); %>
+                                            <% // Collect role details with position for sorting %>
+                                            <% const ambassadorRolesList = []; %>
                                             <% Object.values(userRoles).forEach(roles => { %>
                                                 <% roles.forEach(role => { %>
                                                     <% if (group.roles.includes(role.roleId)) { %>
-                                                        <% ambassadorRoles.set(role.roleId, role.roleName); %>
+                                                        <% // Only add if not already in list %>
+                                                        <% if (!ambassadorRolesList.find(r => r.roleId === role.roleId)) { %>
+                                                            <% ambassadorRolesList.push({ roleId: role.roleId, roleName: role.roleName, position: role.position || 0 }); %>
+                                                        <% } %>
                                                     <% } %>
                                                 <% }); %>
                                             <% }); %>
-                                            <% // Sort roles by position (already sorted in userRoles) %>
-                                            <% Array.from(ambassadorRoles.values()).forEach(roleName => { %>
-                                                <option value="<%= roleName %>"><%= roleName %></option>
+                                            <% // Sort by position (higher position first) %>
+                                            <% ambassadorRolesList.sort((a, b) => b.position - a.position); %>
+                                            <% ambassadorRolesList.forEach(role => { %>
+                                                <option value="<%= role.roleName %>"><%= role.roleName %></option>
                                             <% }); %>
                                         <% } else { %>
                                             <% // For standard groups, show group name %>
