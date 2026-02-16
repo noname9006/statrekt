@@ -95,6 +95,86 @@
                 </div>
             </section>
 
+            <!-- Recent Activity Table -->
+            <section class="card" style="margin-top: 30px;">
+                <h2>Recent Activity</h2>
+                
+                <!-- Filters -->
+                <div style="margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                        <!-- User Filter -->
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #b9bbbe;">Filter by User</label>
+                            <input type="text" id="userFilter" placeholder="Search by username or ID..." 
+                                   style="width: 100%; padding: 8px; background: #40444b; border: 1px solid #202225; color: #dcddde; border-radius: 4px;">
+                        </div>
+                        
+                        <!-- Level Filter -->
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #b9bbbe;">Filter by Level</label>
+                            <select id="levelFilter" style="width: 100%; padding: 8px; background: #40444b; border: 1px solid #202225; color: #dcddde; border-radius: 4px;">
+                                <option value="">All Levels</option>
+                                <% if (roleGroups && roleGroups.length > 0) { %>
+                                    <% roleGroups.forEach(group => { %>
+                                        <option value="<%= group.name %>"><%= group.name %></option>
+                                    <% }); %>
+                                <% } %>
+                            </select>
+                        </div>
+                        
+                        <!-- Channel Filter Type -->
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #b9bbbe;">Channel Filter Type</label>
+                            <select id="channelFilterType" style="width: 100%; padding: 8px; background: #40444b; border: 1px solid #202225; color: #dcddde; border-radius: 4px;">
+                                <option value="all">All Channels</option>
+                                <option value="whitelist">Whitelist (only selected)</option>
+                                <option value="blacklist">Blacklist (exclude selected)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Channel Selection -->
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #b9bbbe;">Select Channels</label>
+                            <select id="channelFilter" multiple size="1" style="width: 100%; padding: 8px; background: #40444b; border: 1px solid #202225; color: #dcddde; border-radius: 4px;">
+                                <% if (channels && channels.length > 0) { %>
+                                    <% channels.forEach(channel => { %>
+                                        <option value="<%= channel.id %>"><%= channel.name %></option>
+                                    <% }); %>
+                                <% } %>
+                            </select>
+                            <small style="color: #72767d;">Hold Ctrl/Cmd to select multiple</small>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <button onclick="applyFilters()" style="padding: 8px 20px; background: #5865F2; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Apply Filters</button>
+                        <button onclick="clearFilters()" style="padding: 8px 20px; background: #40444b; color: #dcddde; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear Filters</button>
+                    </div>
+                </div>
+                
+                <!-- Activity Table -->
+                <div style="overflow-x: auto;">
+                    <table class="data-table sortable-table" id="activityTable">
+                        <thead>
+                            <tr>
+                                <th class="sortable" data-sort="username">Username</th>
+                                <th class="sortable" data-sort="days">Days Since Last Message</th>
+                                <th class="sortable" data-sort="lastMessage">Last Message Date</th>
+                                <th class="sortable" data-sort="messages">Total Messages</th>
+                                <th>Level</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activityTableBody">
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div style="margin-top: 15px; color: #b9bbbe;">
+                    Showing <span id="activityCount">0</span> users
+                </div>
+            </section>
+
             <!-- Footer -->
             <footer class="footer">
                 <p>Drag the timeline slider to adjust the date range</p>
@@ -576,6 +656,158 @@
             }
         }
         
+        // Recent Activity Table functionality
+        const recentActivityData = <%- JSON.stringify(recentActivity) %>;
+        const userRolesData = <%- JSON.stringify(userRoles) %>;
+        const roleGroupsData = <%- JSON.stringify(roleGroups) %>;
+        
+        let filteredActivityData = [...recentActivityData];
+        let currentSort = { column: 'days', direction: 'asc' };
+        
+        // Get user's highest role level
+        function getUserLevel(userId) {
+            const roles = userRolesData[userId] || [];
+            
+            // Find the highest position role that belongs to a role group
+            for (const group of roleGroupsData) {
+                for (const role of roles) {
+                    if (group.roles && group.roles.includes(role.roleId)) {
+                        return group.name;
+                    }
+                }
+            }
+            
+            return 'No Level';
+        }
+        
+        // Populate activity table
+        function populateActivityTable(data) {
+            const tbody = document.getElementById('activityTableBody');
+            tbody.innerHTML = '';
+            
+            data.forEach(user => {
+                const row = document.createElement('tr');
+                const level = getUserLevel(user.userId);
+                const lastMessageDate = new Date(user.lastMessageTimestamp);
+                
+                row.innerHTML = `
+                    <td data-value="${user.username}">${user.username || user.userId}</td>
+                    <td data-value="${user.daysSinceLastMessage}">${user.daysSinceLastMessage}</td>
+                    <td data-value="${user.lastMessageTimestamp}">${lastMessageDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                    <td data-value="${user.totalMessages}">${user.totalMessages.toLocaleString()}</td>
+                    <td data-value="${level}">${level}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('activityCount').textContent = data.length;
+        }
+        
+        // Apply filters
+        function applyFilters() {
+            const userFilter = document.getElementById('userFilter').value.toLowerCase();
+            const levelFilter = document.getElementById('levelFilter').value;
+            const channelFilterType = document.getElementById('channelFilterType').value;
+            const channelFilter = Array.from(document.getElementById('channelFilter').selectedOptions).map(opt => opt.value);
+            
+            // Start with all data
+            filteredActivityData = [...recentActivityData];
+            
+            // Apply user filter
+            if (userFilter) {
+                filteredActivityData = filteredActivityData.filter(user => {
+                    const username = (user.username || '').toLowerCase();
+                    const userId = (user.userId || '').toLowerCase();
+                    return username.includes(userFilter) || userId.includes(userFilter);
+                });
+            }
+            
+            // Apply level filter
+            if (levelFilter) {
+                filteredActivityData = filteredActivityData.filter(user => {
+                    return getUserLevel(user.userId) === levelFilter;
+                });
+            }
+            
+            // Note: Channel filtering would require refetching data from server with channel filters
+            // For now, we'll show a message if channel filters are selected
+            if (channelFilterType !== 'all' && channelFilter.length > 0) {
+                console.log('Channel filtering requires server-side filtering');
+                // This would need to be implemented with an API call
+            }
+            
+            // Apply current sort
+            sortActivityTable(currentSort.column, currentSort.direction);
+        }
+        
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('userFilter').value = '';
+            document.getElementById('levelFilter').value = '';
+            document.getElementById('channelFilterType').value = 'all';
+            document.getElementById('channelFilter').selectedIndex = -1;
+            
+            filteredActivityData = [...recentActivityData];
+            sortActivityTable(currentSort.column, currentSort.direction);
+        }
+        
+        // Sort activity table
+        function sortActivityTable(column, direction) {
+            currentSort = { column, direction };
+            
+            filteredActivityData.sort((a, b) => {
+                let aVal, bVal;
+                
+                switch(column) {
+                    case 'username':
+                        aVal = (a.username || a.userId).toLowerCase();
+                        bVal = (b.username || b.userId).toLowerCase();
+                        break;
+                    case 'days':
+                        aVal = a.daysSinceLastMessage;
+                        bVal = b.daysSinceLastMessage;
+                        break;
+                    case 'lastMessage':
+                        aVal = a.lastMessageTimestamp;
+                        bVal = b.lastMessageTimestamp;
+                        break;
+                    case 'messages':
+                        aVal = a.totalMessages;
+                        bVal = b.totalMessages;
+                        break;
+                    default:
+                        return 0;
+                }
+                
+                if (direction === 'asc') {
+                    return aVal > bVal ? 1 : -1;
+                } else {
+                    return aVal < bVal ? 1 : -1;
+                }
+            });
+            
+            populateActivityTable(filteredActivityData);
+        }
+        
+        // Add click handlers for sortable headers
+        function setupTableSorting() {
+            const headers = document.querySelectorAll('#activityTable th.sortable');
+            headers.forEach(header => {
+                header.style.cursor = 'pointer';
+                header.addEventListener('click', function() {
+                    const column = this.dataset.sort;
+                    const direction = currentSort.column === column && currentSort.direction === 'asc' ? 'desc' : 'asc';
+                    
+                    // Update header indicators
+                    headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+                    this.classList.add(direction === 'asc' ? 'sort-asc' : 'sort-desc');
+                    
+                    sortActivityTable(column, direction);
+                });
+            });
+        }
+        
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             // Set up slider event listeners
@@ -588,6 +820,10 @@
             } else {
                 initChart([]);
             }
+            
+            // Initialize activity table
+            populateActivityTable(recentActivityData);
+            setupTableSorting();
         });
     </script>
 </body>
