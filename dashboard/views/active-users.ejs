@@ -116,7 +116,29 @@
                                 <option value="">All Levels</option>
                                 <% if (roleGroups && roleGroups.length > 0) { %>
                                     <% roleGroups.forEach(group => { %>
-                                        <option value="<%= group.name %>"><%= group.name %></option>
+                                        <% if (group.isAmbassadorGroup && group.roles && group.roles.length > 0) { %>
+                                            <% // For ambassador groups, show individual roles %>
+                                            <% // Collect role details with position for sorting %>
+                                            <% const ambassadorRolesList = []; %>
+                                            <% Object.values(userRoles).forEach(roles => { %>
+                                                <% roles.forEach(role => { %>
+                                                    <% if (group.roles.includes(role.roleId)) { %>
+                                                        <% // Only add if not already in list %>
+                                                        <% if (!ambassadorRolesList.find(r => r.roleId === role.roleId)) { %>
+                                                            <% ambassadorRolesList.push({ roleId: role.roleId, roleName: role.roleName, position: role.position || 0 }); %>
+                                                        <% } %>
+                                                    <% } %>
+                                                <% }); %>
+                                            <% }); %>
+                                            <% // Sort by position (higher position first) %>
+                                            <% ambassadorRolesList.sort((a, b) => b.position - a.position); %>
+                                            <% ambassadorRolesList.forEach(role => { %>
+                                                <option value="<%= role.roleName %>"><%= role.roleName %></option>
+                                            <% }); %>
+                                        <% } else { %>
+                                            <% // For standard groups, show group name %>
+                                            <option value="<%= group.name %>"><%= group.name %></option>
+                                        <% } %>
                                     <% }); %>
                                 <% } %>
                             </select>
@@ -672,6 +694,11 @@
             for (const group of roleGroupsData) {
                 for (const role of roles) {
                     if (group.roles && group.roles.includes(role.roleId)) {
+                        // For ambassador groups, return the actual role name
+                        if (group.isAmbassadorGroup) {
+                            return role.roleName;
+                        }
+                        // For standard groups, return the group name
                         return group.name;
                     }
                 }
