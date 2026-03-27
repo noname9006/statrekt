@@ -687,3 +687,22 @@ th.sort-desc::after {
 #activityTable td {
     padding: 12px;
 }
+
+/* Clickable user rows in Top Users table */
+.user-selectable {
+    cursor: pointer;
+}
+
+.user-selectable:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+}
+
+tr.user-selected td {
+    background-color: rgba(231, 76, 60, 0.08);
+    font-weight: 500;
+}
+
+.user-selected .user-selectable {
+    color: #e74c3c;
+}
