@@ -482,6 +482,80 @@ function getActivityOverTime(db, startDate, endDate, granularity = 'day') {
 }
 
 /**
+ * Get activity over time for a specific user (for per-user chart overlays)
+ * @param {Object} db - SQLite database connection
+ * @param {Date} startDate - Start of the timeframe
+ * @param {Date} endDate - End of the timeframe
+ * @param {String} userId - The Discord author ID to filter by
+ * @param {String} granularity - 'hour', 'day', 'week'
+ * @returns {Promise<Array>} - Array of { date, messageCount, totalCharacters } per day
+ */
+function getActivityOverTimeByUser(db, startDate, endDate, userId, granularity = 'day') {
+  return new Promise((resolve, reject) => {
+    const startTimestamp = startDate.getTime();
+    const endTimestamp = endDate.getTime();
+
+    const query = `
+      SELECT
+        timestamp,
+        LENGTH(content) as charCount
+      FROM messages
+      WHERE timestamp BETWEEN ? AND ?
+        AND authorBot = 0
+        AND authorId = ?
+      ORDER BY timestamp ASC
+    `;
+
+    db.all(query, [startTimestamp, endTimestamp, userId], (err, rows) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      // Group by granularity
+      const grouped = {};
+
+      rows.forEach(row => {
+        const date = moment(row.timestamp);
+        let key;
+
+        if (granularity === 'hour') {
+          key = date.format('YYYY-MM-DD HH:00');
+        } else if (granularity === 'day') {
+          key = date.format('YYYY-MM-DD');
+        } else if (granularity === 'week') {
+          key = date.startOf('week').format('YYYY-MM-DD');
+        }
+
+        if (!grouped[key]) {
+          grouped[key] = { messageCount: 0, totalCharacters: 0 };
+        }
+
+        grouped[key].messageCount += 1;
+        grouped[key].totalCharacters += (row.charCount || 0);
+      });
+
+      // Fill in missing days (currently only 'day' granularity is used by the API endpoint)
+      const result = [];
+      const currentDate = moment(startDate);
+      const endMoment = moment(endDate);
+
+      while (currentDate.isSameOrBefore(endMoment, 'day')) {
+        const key = currentDate.format('YYYY-MM-DD');
+        result.push({
+          date: key,
+          messageCount: grouped[key] ? grouped[key].messageCount : 0,
+          totalCharacters: grouped[key] ? grouped[key].totalCharacters : 0
+        });
+        currentDate.add(1, 'day');
+      }
+
+      resolve(result);
+    });
+  });
+}
+
+/**
  * Calculate points for users based on character count
  * @param {Object} db - SQLite database connection
  * @param {Date} startDate - Start of the timeframe
@@ -988,6 +1062,7 @@ module.exports = {
   getOverallStats,
   getTopUsers,
   getActivityOverTime,
+  getActivityOverTimeByUser,
   calculateUserPoints,
   getDAUOverTime,
   getWAUOverTime,

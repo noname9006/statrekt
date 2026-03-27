@@ -717,6 +717,30 @@ app.get('/api/analytics/:metric', async (req, res) => {
   }
 });
 
+/**
+ * API endpoint to get per-user message activity over time
+ */
+app.get('/api/messages/user-activity', async (req, res) => {
+  try {
+    const { userId, startDate, endDate } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId is required' });
+    }
+
+    const now = new Date();
+    const defaultStartDate = await getEarliestTimestamp();
+    const start = startDate ? new Date(startDate) : defaultStartDate;
+    const end = endDate ? new Date(endDate) : now;
+
+    const data = await analytics.getActivityOverTimeByUser(db, start, end, userId, 'day');
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching user activity:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Start the server
 initializeDatabase()
   .then(() => {
