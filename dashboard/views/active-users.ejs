@@ -810,6 +810,16 @@
             return 'No Level';
         }
         
+        // HTML-escape helper to safely insert user data into HTML attributes
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
         // Populate activity table
         function rebuildActivityTable() {
             const data = filteredActivityData;
@@ -835,18 +845,25 @@
                     ? 'color: #5865F2; border-color: #5865F2; background: rgba(88,101,242,0.15);'
                     : '';
                 const flagClass = isSelected ? 'flag-btn flagged' : 'flag-btn';
-                const escapedUsername = (user.username || user.userId).replace(/'/g, "\\'");
                 
                 row.innerHTML = `
-                    <td data-value="${user.username}">${user.username || user.userId}</td>
+                    <td data-value="${escapeHtml(user.username)}">${escapeHtml(user.username || user.userId)}</td>
                     <td data-value="${user.daysSinceLastMessage}">${user.daysSinceLastMessage}</td>
                     <td data-value="${user.lastMessageTimestamp}">${lastMessageDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                     <td data-value="${msgCount}">${msgCount.toLocaleString()}</td>
-                    <td data-value="${level}">${level}</td>
+                    <td data-value="${escapeHtml(level)}">${escapeHtml(level)}</td>
                     <td style="text-align:center;">
-                        <button class="${flagClass}" data-user-id="${user.userId}" onclick="toggleAuFlag('${user.userId}', '${escapedUsername}', this)" style="background:none; border:1px solid #40444b; border-radius:4px; width:28px; height:28px; cursor:pointer; font-size:1rem; color:#72767d; transition: all 0.15s; ${flagStyle}">✔</button>
+                        <button class="${flagClass}" style="background:none; border:1px solid #40444b; border-radius:4px; width:28px; height:28px; cursor:pointer; font-size:1rem; color:#72767d; transition: all 0.15s; ${flagStyle}">✔</button>
                     </td>
                 `;
+                
+                // Attach flag button click handler via DOM (avoids inline script injection)
+                const btn = row.querySelector('button');
+                btn.dataset.userId = user.userId;
+                btn.dataset.username = user.username || user.userId;
+                btn.addEventListener('click', function() {
+                    toggleAuFlag(this.dataset.userId, this.dataset.username, this);
+                });
                 
                 tbody.appendChild(row);
             });
@@ -980,7 +997,7 @@
                 rebuildActivityTable();
                 // Update column header
                 const hdr = document.getElementById('messagesColHeader');
-                if (hdr) hdr.textContent = `Messages (${typeof days === 'number' ? days + 'D' : days})`;
+                if (hdr) hdr.textContent = `Messages (${days === 'all' ? 'ALL' : days + 'D'})`;
             } catch(e) {
                 console.error('Error refreshing period message counts:', e);
             }
@@ -1043,17 +1060,23 @@
                 const msgCount = periodMessageCounts !== null
                     ? (periodMessageCounts[user.userId] ?? 0)
                     : user.totalMessages;
-                const escapedUsername = (user.username || user.userId).replace(/'/g, "\\'");
                 row.innerHTML = `
-                    <td data-value="${user.username}">${user.username || user.userId}</td>
+                    <td data-value="${escapeHtml(user.username)}">${escapeHtml(user.username || user.userId)}</td>
                     <td data-value="${user.daysSinceLastMessage}">${user.daysSinceLastMessage}</td>
                     <td data-value="${user.lastMessageTimestamp}">${lastMessageDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                     <td data-value="${msgCount}">${msgCount.toLocaleString()}</td>
-                    <td data-value="${level}">${level}</td>
+                    <td data-value="${escapeHtml(level)}">${escapeHtml(level)}</td>
                     <td style="text-align:center;">
-                        <button class="flag-btn flagged" data-user-id="${user.userId}" onclick="toggleAuFlag('${user.userId}', '${escapedUsername}', this)" style="background:none; border:1px solid #5865F2; border-radius:4px; width:28px; height:28px; cursor:pointer; font-size:1rem; color:#5865F2; background:rgba(88,101,242,0.15); transition: all 0.15s;">✔</button>
+                        <button class="flag-btn flagged" style="background:none; border:1px solid #5865F2; border-radius:4px; width:28px; height:28px; cursor:pointer; font-size:1rem; color:#5865F2; background:rgba(88,101,242,0.15); transition: all 0.15s;">✔</button>
                     </td>
                 `;
+                // Attach click handler via DOM to avoid XSS
+                const btn = row.querySelector('button');
+                btn.dataset.userId = user.userId;
+                btn.dataset.username = user.username || user.userId;
+                btn.addEventListener('click', function() {
+                    toggleAuFlag(this.dataset.userId, this.dataset.username, this);
+                });
                 tbody.appendChild(row);
             });
 
