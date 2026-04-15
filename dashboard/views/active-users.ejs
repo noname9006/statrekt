@@ -850,9 +850,6 @@
                     ? (periodMessageCounts[user.userId] ?? 0)
                     : user.totalMessages;
                 
-                const flagStyle = isSelected
-                    ? 'color: #5865F2; border-color: #5865F2; background: rgba(88,101,242,0.15);'
-                    : '';
                 const flagClass = isSelected ? 'flag-btn flagged' : 'flag-btn';
                 
                 row.innerHTML = `
@@ -862,7 +859,7 @@
                     <td data-value="${msgCount}">${msgCount.toLocaleString()}</td>
                     <td data-value="${escapeHtml(level)}">${escapeHtml(level)}</td>
                     <td style="text-align:center;">
-                        <button class="${flagClass}" style="background:none; border:1px solid #40444b; border-radius:4px; width:28px; height:28px; cursor:pointer; font-size:1rem; color:#72767d; transition: all 0.15s; ${flagStyle}">✔</button>
+                        <button class="${flagClass}">✔</button>
                     </td>
                 `;
                 
@@ -1083,7 +1080,7 @@
                     <td data-value="${msgCount}">${msgCount.toLocaleString()}</td>
                     <td data-value="${escapeHtml(level)}">${escapeHtml(level)}</td>
                     <td style="text-align:center;">
-                        <button class="flag-btn flagged" style="border:1px solid #5865F2; border-radius:4px; width:28px; height:28px; cursor:pointer; font-size:1rem; color:#5865F2; background:rgba(88,101,242,0.15); transition: all 0.15s;">✔</button>
+                        <button class="flag-btn flagged">✔</button>
                     </td>
                 `;
                 // Attach click handler via DOM to avoid XSS
