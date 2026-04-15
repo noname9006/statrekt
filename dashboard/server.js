@@ -741,6 +741,50 @@ app.get('/api/messages/user-activity', async (req, res) => {
   }
 });
 
+/**
+ * API: recent activity filtered by period
+ */
+app.get('/api/active-users/recent-activity', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ success: false, error: 'startDate and endDate required' });
+    }
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ success: false, error: 'Invalid startDate or endDate' });
+    }
+    const data = await analytics.getRecentUserActivityForPeriod(db, start, end);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching period activity:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * API: per-user DAU timeline for selected user flagging
+ */
+app.get('/api/active-users/user-timeline', async (req, res) => {
+  try {
+    const { userId, startDate, endDate } = req.query;
+    if (!userId) return res.status(400).json({ success: false, error: 'userId required' });
+    const now = new Date();
+    const defaultStart = await getEarliestTimestamp();
+    const start = startDate ? new Date(startDate) : defaultStart;
+    const end = endDate ? new Date(endDate) : now;
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ success: false, error: 'Invalid startDate or endDate' });
+    }
+    const data = await analytics.getDAUOverTimeByUser(db, start, end, userId);
+    res.json({ success: true, data });
+  } catch(e) {
+    console.error('Error fetching user timeline:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // Start the server
 initializeDatabase()
   .then(() => {
