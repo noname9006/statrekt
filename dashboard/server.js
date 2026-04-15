@@ -752,6 +752,9 @@ app.get('/api/active-users/recent-activity', async (req, res) => {
     }
     const start = new Date(startDate);
     const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ success: false, error: 'Invalid startDate or endDate' });
+    }
     const data = await analytics.getRecentUserActivityForPeriod(db, start, end);
     res.json({ success: true, data });
   } catch (error) {
@@ -771,6 +774,9 @@ app.get('/api/active-users/user-timeline', async (req, res) => {
     const defaultStart = await getEarliestTimestamp();
     const start = startDate ? new Date(startDate) : defaultStart;
     const end = endDate ? new Date(endDate) : now;
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ success: false, error: 'Invalid startDate or endDate' });
+    }
     const data = await analytics.getDAUOverTimeByUser(db, start, end, userId);
     res.json({ success: true, data });
   } catch(e) {

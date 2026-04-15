@@ -292,13 +292,15 @@
                     buckets[key] = {
                         date: key,
                         values: [],
-                        count: 0
+                        count: 0,
+                        messageCount: 0
                     };
                 }
                 
                 const value = getMetricValue(point);
                 buckets[key].values.push(value);
                 buckets[key].count++;
+                buckets[key].messageCount += (point.messageCount || 0);
             });
             
             // Convert buckets to array and calculate averages
@@ -311,7 +313,8 @@
                     dau: metric === 'dau' ? avg : 0,
                     wau: metric === 'wau' ? avg : 0,
                     twoWau: metric === '2wau' ? avg : 0,
-                    mau: metric === 'mau' ? avg : 0
+                    mau: metric === 'mau' ? avg : 0,
+                    messageCount: bucket.messageCount
                 });
             });
             
@@ -706,11 +709,13 @@
             // Update current data
             currentData = fullData.slice(startIdx, endIdx + 1);
             
-            // Refresh period message counts and handle selected users
-            refreshTableMessageCounts(currentPeriodDays).catch(console.error);
+            // Refresh period message counts using 'custom' so header shows "Messages (custom)"
+            refreshTableMessageCounts('custom').catch(console.error);
             if (selectedAuUsers.length > 0) {
+                // Capture snapshot to avoid stale closure if slider moves again before fetch returns
+                const dataSnapshot = currentData;
                 refreshSelectedAuUsersTimelines().then(() => {
-                    initChart(currentData);
+                    initChart(dataSnapshot);
                     updateRangeLabels(startIdx, endIdx);
                     updateSliderRange();
                 });
@@ -762,7 +767,11 @@
             
             // Update display
             currentData = fullData.slice(startIdx, endIdx + 1);
-            initChart(currentData);
+            // Only render chart immediately when no users are selected;
+            // when users are selected, we must refresh timelines first (below).
+            if (selectedAuUsers.length === 0) {
+                initChart(currentData);
+            }
             updateRangeLabels(startIdx, endIdx);
             updateSliderRange();
             
@@ -995,42 +1004,49 @@
                 periodMessageCounts = {};
                 json.data.forEach(u => { periodMessageCounts[u.userId] = u.totalMessages; });
                 rebuildActivityTable();
-                // Update column header
+                // Update column header: 'custom' for slider-dragged ranges, else '30D' etc.
                 const hdr = document.getElementById('messagesColHeader');
-                if (hdr) hdr.textContent = `Messages (${days}D)`;
+                if (hdr) hdr.textContent = days === 'custom' ? 'Messages (custom)' : `Messages (${days}D)`;
             } catch(e) {
                 console.error('Error refreshing period message counts:', e);
             }
         }
 
         // Toggle user flag in Recent Activity table
+        const _toggleAuFlagInFlight = new Set(); // prevents double-click race
         async function toggleAuFlag(userId, username, btnEl) {
-            const existingIdx = selectedAuUsers.findIndex(u => u.userId === userId);
-            if (existingIdx !== -1) {
-                selectedAuUsers.splice(existingIdx, 1);
-            } else {
-                const color = AU_USER_COLORS[selectedAuUsers.length % AU_USER_COLORS.length];
-                const startDate = currentData.length > 0 ? currentData[0].date : null;
-                const endDate = currentData.length > 0 ? currentData[currentData.length - 1].date : null;
-                try {
-                    const params = new URLSearchParams({ userId });
-                    if (startDate) params.set('startDate', startDate);
-                    if (endDate) params.set('endDate', endDate);
-                    const resp = await fetch(`/api/active-users/user-timeline?${params}`);
-                    const json = await resp.json();
-                    const timeline = json.success ? json.data : [];
-                    const timelineMap = {};
-                    timeline.forEach(d => { timelineMap[d.date] = d; });
-                    selectedAuUsers.push({ userId, username, color, timeline: timelineMap });
-                } catch(e) {
-                    console.error('Error fetching user timeline:', e);
-                    selectedAuUsers.push({ userId, username, color, timeline: {} });
+            if (_toggleAuFlagInFlight.has(userId)) return; // already processing this user
+            _toggleAuFlagInFlight.add(userId);
+            try {
+                const existingIdx = selectedAuUsers.findIndex(u => u.userId === userId);
+                if (existingIdx !== -1) {
+                    selectedAuUsers.splice(existingIdx, 1);
+                } else {
+                    const color = AU_USER_COLORS[selectedAuUsers.length % AU_USER_COLORS.length];
+                    const startDate = currentData.length > 0 ? currentData[0].date : null;
+                    const endDate = currentData.length > 0 ? currentData[currentData.length - 1].date : null;
+                    try {
+                        const params = new URLSearchParams({ userId });
+                        if (startDate) params.set('startDate', startDate);
+                        if (endDate) params.set('endDate', endDate);
+                        const resp = await fetch(`/api/active-users/user-timeline?${params}`);
+                        const json = await resp.json();
+                        const timeline = json.success ? json.data : [];
+                        const timelineMap = {};
+                        timeline.forEach(d => { timelineMap[d.date] = d; });
+                        selectedAuUsers.push({ userId, username, color, timeline: timelineMap });
+                    } catch(e) {
+                        console.error('Error fetching user timeline:', e);
+                        selectedAuUsers.push({ userId, username, color, timeline: {} });
+                    }
                 }
+                rebuildActivityTable();
+                rebuildSelectedUsersPanel();
+                updateAuChartControls();
+                initChart(currentData);
+            } finally {
+                _toggleAuFlagInFlight.delete(userId);
             }
-            rebuildActivityTable();
-            rebuildSelectedUsersPanel();
-            updateAuChartControls();
-            initChart(currentData);
         }
 
         // Clear all selected users
@@ -1067,7 +1083,7 @@
                     <td data-value="${msgCount}">${msgCount.toLocaleString()}</td>
                     <td data-value="${escapeHtml(level)}">${escapeHtml(level)}</td>
                     <td style="text-align:center;">
-                        <button class="flag-btn flagged" style="background:none; border:1px solid #5865F2; border-radius:4px; width:28px; height:28px; cursor:pointer; font-size:1rem; color:#5865F2; background:rgba(88,101,242,0.15); transition: all 0.15s;">✔</button>
+                        <button class="flag-btn flagged" style="border:1px solid #5865F2; border-radius:4px; width:28px; height:28px; cursor:pointer; font-size:1rem; color:#5865F2; background:rgba(88,101,242,0.15); transition: all 0.15s;">✔</button>
                     </td>
                 `;
                 // Attach click handler via DOM to avoid XSS
