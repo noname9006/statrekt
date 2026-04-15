@@ -74,7 +74,19 @@
 
             <!-- DAU Chart with Timeline -->
             <section class="card">
-                <h2>Daily Active Users Over Time</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0;" id="dauChartTitle">Daily Active Users Over Time</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <select id="auChartMetric" onchange="onAuChartMetricChange()" style="padding: 8px 12px; background-color: var(--surface-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; cursor: pointer;">
+                            <option value="users">Active Users</option>
+                            <option value="messages">Messages</option>
+                        </select>
+                        <select id="auChartType" onchange="initChart(currentData)" style="padding: 8px 12px; background-color: var(--surface-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; cursor: pointer;">
+                            <option value="line">Line Chart</option>
+                            <option value="bar">Bar Chart</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="chart-container" style="position: relative; height: 400px;">
                     <canvas id="dauChart"></canvas>
                 </div>
@@ -98,6 +110,29 @@
             <!-- Recent Activity Table -->
             <section class="card" style="margin-top: 30px;">
                 <h2>Recent Activity</h2>
+
+                <!-- Selected Users Panel -->
+                <div id="selectedUsersPanel" style="display:none; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                        <h3 style="margin: 0; color: #b9bbbe; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">Selected Users</h3>
+                        <button id="clearSelectionBtn" onclick="clearAuSelection()" style="padding: 4px 14px; background: #40444b; color: #dcddde; border: 1px solid #202225; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">Clear Selection</button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="data-table" id="selectedUsersTable">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Days Since Last Message</th>
+                                    <th>Last Message Date</th>
+                                    <th>Messages</th>
+                                    <th>Level</th>
+                                    <th style="width: 40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="selectedUsersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
                 
                 <!-- Filters -->
                 <div style="margin-bottom: 20px;">
@@ -182,8 +217,9 @@
                                 <th class="sortable" data-sort="username">Username</th>
                                 <th class="sortable" data-sort="days">Days Since Last Message</th>
                                 <th class="sortable" data-sort="lastMessage">Last Message Date</th>
-                                <th class="sortable" data-sort="messages">Total Messages</th>
+                                <th class="sortable" data-sort="messages" id="messagesColHeader">Total Messages</th>
                                 <th>Level</th>
+                                <th style="width: 40px; text-align: center;">Flag</th>
                             </tr>
                         </thead>
                         <tbody id="activityTableBody">
@@ -217,6 +253,11 @@
         let currentData = [...fullData];
         
         let chart = null;
+        let currentPeriodDays = 30; // tracks current preset ('all' or number)
+        let periodMessageCounts = null; // null = show all-time, object = period lookup
+        
+        const AU_USER_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#e91e63'];
+        let selectedAuUsers = []; // array of { userId, username, color, timeline }
         
         // Function to aggregate data by weeks or months
         function aggregateData(data, metric) {
@@ -407,21 +448,64 @@
                 chart.destroy();
             }
             
+            const auMetric = document.getElementById('auChartMetric') ? document.getElementById('auChartMetric').value : 'users';
+            const auChartTypeEl = document.getElementById('auChartType');
+            const auChartType = selectedAuUsers.length > 0 ? 'line' : (auChartTypeEl ? auChartTypeEl.value : 'line');
+
+            let datasets;
+            if (selectedAuUsers.length > 0) {
+                const combinedData = currentData.map(d => {
+                    if (auMetric === 'users') {
+                        return selectedAuUsers.filter(u => u.timeline && u.timeline[d.date] && u.timeline[d.date].dau === 1).length;
+                    } else {
+                        return selectedAuUsers.reduce((sum, u) => sum + (u.timeline && u.timeline[d.date] ? u.timeline[d.date].messageCount : 0), 0);
+                    }
+                });
+                const label = auMetric === 'users'
+                    ? `Active Users (${selectedAuUsers.length} selected)`
+                    : `Messages (${selectedAuUsers.length} selected)`;
+                datasets = [{
+                    label,
+                    data: combinedData,
+                    borderColor: '#5865F2',
+                    backgroundColor: auChartType === 'bar' ? '#5865F2' : 'rgba(88,101,242,0.1)',
+                    borderWidth: 2,
+                    fill: auChartType === 'line',
+                    tension: 0.1,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }];
+            } else if (auMetric === 'messages') {
+                datasets = [{
+                    label: 'Messages',
+                    data: data.map(d => d.messageCount || 0),
+                    borderColor: '#43b581',
+                    backgroundColor: auChartType === 'bar' ? '#43b581' : 'rgba(67,181,129,0.1)',
+                    borderWidth: 2,
+                    fill: auChartType === 'line',
+                    tension: 0.1,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }];
+            } else {
+                datasets = [{
+                    label: getMetricLabel(),
+                    data: data.map(d => getMetricValue(d)),
+                    borderColor: '#5865F2',
+                    backgroundColor: auChartType === 'bar' ? '#5865F2' : 'rgba(88, 101, 242, 0.1)',
+                    borderWidth: 2,
+                    fill: auChartType === 'line',
+                    tension: 0.1,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }];
+            }
+
             chart = new Chart(ctx.getContext('2d'), {
-                type: 'line',
+                type: auChartType,
                 data: {
                     labels: data.map(d => d.date),
-                    datasets: [{
-                        label: getMetricLabel(),
-                        data: data.map(d => getMetricValue(d)),
-                        borderColor: '#5865F2',
-                        backgroundColor: 'rgba(88, 101, 242, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.1,
-                        pointRadius: 3,
-                        pointHoverRadius: 5
-                    }]
+                    datasets
                 },
                 options: {
                     responsive: true,
@@ -622,6 +706,19 @@
             // Update current data
             currentData = fullData.slice(startIdx, endIdx + 1);
             
+            // Refresh period message counts and handle selected users
+            refreshTableMessageCounts(currentPeriodDays).catch(console.error);
+            if (selectedAuUsers.length > 0) {
+                refreshSelectedAuUsersTimelines().then(() => {
+                    initChart(currentData);
+                    updateRangeLabels(startIdx, endIdx);
+                    updateSliderRange();
+                });
+                // Clear active preset buttons
+                document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+                return; // skip the synchronous initChart below
+            }
+
             // Update chart and labels
             initChart(currentData);
             updateRangeLabels(startIdx, endIdx);
@@ -676,6 +773,12 @@
             } else {
                 document.getElementById(`preset-${days}d`).classList.add('active');
             }
+            
+            currentPeriodDays = days;
+            refreshTableMessageCounts(days).catch(console.error);
+            if (selectedAuUsers.length > 0) {
+                refreshSelectedAuUsersTimelines().then(() => initChart(currentData));
+            }
         }
         
         // Recent Activity Table functionality
@@ -708,7 +811,8 @@
         }
         
         // Populate activity table
-        function populateActivityTable(data) {
+        function rebuildActivityTable() {
+            const data = filteredActivityData;
             const tbody = document.getElementById('activityTableBody');
             tbody.innerHTML = '';
             
@@ -716,13 +820,32 @@
                 const row = document.createElement('tr');
                 const level = getUserLevel(user.userId);
                 const lastMessageDate = new Date(user.lastMessageTimestamp);
+                const isSelected = selectedAuUsers.some(u => u.userId === user.userId);
+                
+                if (isSelected) {
+                    row.classList.add('user-selected');
+                }
+                row.dataset.userId = user.userId;
+                
+                const msgCount = periodMessageCounts !== null
+                    ? (periodMessageCounts[user.userId] ?? 0)
+                    : user.totalMessages;
+                
+                const flagStyle = isSelected
+                    ? 'color: #5865F2; border-color: #5865F2; background: rgba(88,101,242,0.15);'
+                    : '';
+                const flagClass = isSelected ? 'flag-btn flagged' : 'flag-btn';
+                const escapedUsername = (user.username || user.userId).replace(/'/g, "\\'");
                 
                 row.innerHTML = `
                     <td data-value="${user.username}">${user.username || user.userId}</td>
                     <td data-value="${user.daysSinceLastMessage}">${user.daysSinceLastMessage}</td>
                     <td data-value="${user.lastMessageTimestamp}">${lastMessageDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                    <td data-value="${user.totalMessages}">${user.totalMessages.toLocaleString()}</td>
+                    <td data-value="${msgCount}">${msgCount.toLocaleString()}</td>
                     <td data-value="${level}">${level}</td>
+                    <td style="text-align:center;">
+                        <button class="${flagClass}" data-user-id="${user.userId}" onclick="toggleAuFlag('${user.userId}', '${escapedUsername}', this)" style="background:none; border:1px solid #40444b; border-radius:4px; width:28px; height:28px; cursor:pointer; font-size:1rem; color:#72767d; transition: all 0.15s; ${flagStyle}">✔</button>
+                    </td>
                 `;
                 
                 tbody.appendChild(row);
@@ -800,8 +923,8 @@
                         bVal = b.lastMessageTimestamp;
                         break;
                     case 'messages':
-                        aVal = a.totalMessages;
-                        bVal = b.totalMessages;
+                        aVal = periodMessageCounts !== null ? (periodMessageCounts[a.userId] ?? 0) : a.totalMessages;
+                        bVal = periodMessageCounts !== null ? (periodMessageCounts[b.userId] ?? 0) : b.totalMessages;
                         break;
                     default:
                         return 0;
@@ -814,7 +937,7 @@
                 }
             });
             
-            populateActivityTable(filteredActivityData);
+            rebuildActivityTable();
         }
         
         // Add click handlers for sortable headers
@@ -835,6 +958,151 @@
             });
         }
         
+        // Refresh table message counts for a given period
+        async function refreshTableMessageCounts(days) {
+            if (days === 'all') {
+                periodMessageCounts = null;
+                rebuildActivityTable();
+                // Update column header
+                const hdr = document.getElementById('messagesColHeader');
+                if (hdr) hdr.textContent = 'Total Messages';
+                return;
+            }
+            if (currentData.length === 0) return;
+            const startDate = currentData[0].date;
+            const endDate = currentData[currentData.length - 1].date;
+            try {
+                const resp = await fetch(`/api/active-users/recent-activity?startDate=${startDate}&endDate=${endDate}`);
+                const json = await resp.json();
+                if (!json.success) return;
+                periodMessageCounts = {};
+                json.data.forEach(u => { periodMessageCounts[u.userId] = u.totalMessages; });
+                rebuildActivityTable();
+                // Update column header
+                const hdr = document.getElementById('messagesColHeader');
+                if (hdr) hdr.textContent = `Messages (${typeof days === 'number' ? days + 'D' : days})`;
+            } catch(e) {
+                console.error('Error refreshing period message counts:', e);
+            }
+        }
+
+        // Toggle user flag in Recent Activity table
+        async function toggleAuFlag(userId, username, btnEl) {
+            const existingIdx = selectedAuUsers.findIndex(u => u.userId === userId);
+            if (existingIdx !== -1) {
+                selectedAuUsers.splice(existingIdx, 1);
+            } else {
+                const color = AU_USER_COLORS[selectedAuUsers.length % AU_USER_COLORS.length];
+                const startDate = currentData.length > 0 ? currentData[0].date : null;
+                const endDate = currentData.length > 0 ? currentData[currentData.length - 1].date : null;
+                try {
+                    const params = new URLSearchParams({ userId });
+                    if (startDate) params.set('startDate', startDate);
+                    if (endDate) params.set('endDate', endDate);
+                    const resp = await fetch(`/api/active-users/user-timeline?${params}`);
+                    const json = await resp.json();
+                    const timeline = json.success ? json.data : [];
+                    const timelineMap = {};
+                    timeline.forEach(d => { timelineMap[d.date] = d; });
+                    selectedAuUsers.push({ userId, username, color, timeline: timelineMap });
+                } catch(e) {
+                    console.error('Error fetching user timeline:', e);
+                    selectedAuUsers.push({ userId, username, color, timeline: {} });
+                }
+            }
+            rebuildActivityTable();
+            rebuildSelectedUsersPanel();
+            updateAuChartControls();
+            initChart(currentData);
+        }
+
+        // Clear all selected users
+        function clearAuSelection() {
+            selectedAuUsers = [];
+            rebuildActivityTable();
+            rebuildSelectedUsersPanel();
+            updateAuChartControls();
+            initChart(currentData);
+        }
+
+        // Rebuild the selected users panel
+        function rebuildSelectedUsersPanel() {
+            const panel = document.getElementById('selectedUsersPanel');
+            const tbody = document.getElementById('selectedUsersTableBody');
+            if (!panel || !tbody) return;
+
+            tbody.innerHTML = '';
+
+            selectedAuUsers.forEach(su => {
+                // Find user data in recentActivityData
+                const user = recentActivityData.find(u => u.userId === su.userId);
+                if (!user) return;
+                const row = document.createElement('tr');
+                const level = getUserLevel(user.userId);
+                const lastMessageDate = new Date(user.lastMessageTimestamp);
+                const msgCount = periodMessageCounts !== null
+                    ? (periodMessageCounts[user.userId] ?? 0)
+                    : user.totalMessages;
+                const escapedUsername = (user.username || user.userId).replace(/'/g, "\\'");
+                row.innerHTML = `
+                    <td data-value="${user.username}">${user.username || user.userId}</td>
+                    <td data-value="${user.daysSinceLastMessage}">${user.daysSinceLastMessage}</td>
+                    <td data-value="${user.lastMessageTimestamp}">${lastMessageDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                    <td data-value="${msgCount}">${msgCount.toLocaleString()}</td>
+                    <td data-value="${level}">${level}</td>
+                    <td style="text-align:center;">
+                        <button class="flag-btn flagged" data-user-id="${user.userId}" onclick="toggleAuFlag('${user.userId}', '${escapedUsername}', this)" style="background:none; border:1px solid #5865F2; border-radius:4px; width:28px; height:28px; cursor:pointer; font-size:1rem; color:#5865F2; background:rgba(88,101,242,0.15); transition: all 0.15s;">✔</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            panel.style.display = selectedAuUsers.length > 0 ? '' : 'none';
+        }
+
+        // Refresh timelines for all selected users when date range changes
+        async function refreshSelectedAuUsersTimelines() {
+            if (selectedAuUsers.length === 0) return;
+            const startDate = currentData.length > 0 ? currentData[0].date : null;
+            const endDate = currentData.length > 0 ? currentData[currentData.length - 1].date : null;
+            await Promise.all(selectedAuUsers.map(async u => {
+                try {
+                    const params = new URLSearchParams({ userId: u.userId });
+                    if (startDate) params.set('startDate', startDate);
+                    if (endDate) params.set('endDate', endDate);
+                    const resp = await fetch(`/api/active-users/user-timeline?${params}`);
+                    const json = await resp.json();
+                    const timeline = json.success ? json.data : [];
+                    const timelineMap = {};
+                    timeline.forEach(d => { timelineMap[d.date] = d; });
+                    u.timeline = timelineMap;
+                } catch(e) {
+                    console.error('Error refreshing timeline for', u.username, e);
+                }
+            }));
+        }
+
+        // Handle chart metric change (active users vs messages)
+        function onAuChartMetricChange() {
+            const metric = document.getElementById('auChartMetric').value;
+            document.getElementById('dauChartTitle').textContent =
+                metric === 'messages' ? 'Daily Messages Over Time' : 'Daily Active Users Over Time';
+            initChart(currentData);
+        }
+
+        // Sync chart type control disabled state based on selection mode
+        function updateAuChartControls() {
+            const auChartTypeEl = document.getElementById('auChartType');
+            if (!auChartTypeEl) return;
+            if (selectedAuUsers.length > 0) {
+                auChartTypeEl.disabled = true;
+                auChartTypeEl.title = 'Chart type is fixed to line when users are selected';
+            } else {
+                auChartTypeEl.disabled = false;
+                auChartTypeEl.title = '';
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             // Set up slider event listeners
@@ -849,7 +1117,7 @@
             }
             
             // Initialize activity table
-            populateActivityTable(recentActivityData);
+            rebuildActivityTable();
             setupTableSorting();
         });
     </script>
