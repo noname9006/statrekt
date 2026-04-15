@@ -997,7 +997,7 @@
                 rebuildActivityTable();
                 // Update column header
                 const hdr = document.getElementById('messagesColHeader');
-                if (hdr) hdr.textContent = `Messages (${days === 'all' ? 'ALL' : days + 'D'})`;
+                if (hdr) hdr.textContent = `Messages (${days}D)`;
             } catch(e) {
                 console.error('Error refreshing period message counts:', e);
             }
